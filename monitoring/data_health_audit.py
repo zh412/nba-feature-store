@@ -2,6 +2,12 @@
 # DATA HEALTH AUDIT
 # ============================================================
 
+import sys
+import os
+
+# Allow imports from project root
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from google.cloud import bigquery
 from utils.logging import log
 from config import TABLE_ID
@@ -121,9 +127,7 @@ def run_audit():
     log("INFO", "Running Data Health Audit")
 
     check_daily_row_counts()
-
     check_duplicate_rows()
-
     check_missing_dates()
 
     log("INFO", "Audit complete.")
