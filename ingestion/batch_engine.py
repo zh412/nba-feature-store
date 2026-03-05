@@ -1,5 +1,24 @@
-from utils.nba_session import reset_nba_session
+# ============================================================
+# BATCH INGESTION ENGINE
+# ============================================================
 
+from utils.logging import log
+from utils.nba_session import reset_nba_session
+from utils.rate_governor import RateGovernor
+
+from ingestion.ingestion_engine import run_pipeline
+
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+CHUNK_SIZE_DAYS = 7
+
+
+# ============================================================
+# BATCH UTILITIES
+# ============================================================
 
 def chunk_dates(dates, chunk_size):
     """
@@ -9,7 +28,11 @@ def chunk_dates(dates, chunk_size):
         yield dates[i:i + chunk_size]
 
 
-def run_batches(run_dates, chunk_size, rate_governor, ingestion_function):
+# ============================================================
+# BATCH RUNNER
+# ============================================================
+
+def run_batches(run_dates):
     """
     Executes ingestion in batches of days.
 
@@ -17,27 +40,45 @@ def run_batches(run_dates, chunk_size, rate_governor, ingestion_function):
     ----------
     run_dates : list
         Dates to ingest.
-    chunk_size : int
-        Number of days per batch.
-    rate_governor : RateGovernor
-        API rate management system.
-    ingestion_function : function
-        The function that processes a single day.
+
+    Returns
+    -------
+    successful_days : list
+    failed_days : list
     """
 
-    batches = list(chunk_dates(run_dates, chunk_size))
+    rate_governor = RateGovernor()
 
-    print(f"\nStarting batch ingestion ({len(batches)} batches)")
+    successful_days = []
+    failed_days = []
+
+    batches = list(chunk_dates(run_dates, CHUNK_SIZE_DAYS))
+
+    log("INFO", f"Starting batch ingestion ({len(batches)} batches)")
 
     for batch_index, batch in enumerate(batches, start=1):
 
-        print(f"\n--- Batch {batch_index}/{len(batches)} ---")
+        log("INFO", f"--- Batch {batch_index}/{len(batches)} ---")
 
-        # Reset NBA session each batch
+        # ------------------------------------------------------------
+        # RESET NBA SESSION EACH BATCH
+        # ------------------------------------------------------------
+
         reset_nba_session()
 
-        for run_date in batch:
-            ingestion_function(run_date)
+        # ------------------------------------------------------------
+        # RUN INGESTION PIPELINE
+        # ------------------------------------------------------------
 
-        # Apply cooldown between batches
+        batch_success, batch_fail = run_pipeline(batch)
+
+        successful_days.extend(batch_success)
+        failed_days.extend(batch_fail)
+
+        # ------------------------------------------------------------
+        # BATCH COOLDOWN
+        # ------------------------------------------------------------
+
         rate_governor.sleep_batch()
+
+    return successful_days, failed_days
