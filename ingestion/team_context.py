@@ -1,8 +1,17 @@
+# ============================================================
+# TEAM CONTEXT ENRICHMENT
+# ============================================================
+
 import pandas as pd
 from nba_api.stats.endpoints import boxscorefourfactorsv3
 
+from utils.rate_governor import RateGovernor
 
-def enrich_with_team_context(player_game_log, game_id, governor):
+# Shared governor instance
+_governor = RateGovernor()
+
+
+def enrich_team_context(player_game_log, game_id):
     """
     Pull team-level four factor statistics for the game and merge
     them into the player dataframe.
@@ -19,7 +28,7 @@ def enrich_with_team_context(player_game_log, game_id, governor):
     oppOffensiveReboundPercentage_TEAM
     """
 
-    governor.register_request()
+    _governor.register_request()
 
     four = boxscorefourfactorsv3.BoxScoreFourFactorsV3(
         game_id=game_id,
@@ -48,7 +57,16 @@ def enrich_with_team_context(player_game_log, game_id, governor):
 
     team_four_df["GAME_ID"] = str(game_id)
 
-    team_four_df = team_four_df.drop(columns=["minutes"], errors="ignore")
+    team_four_df = team_four_df.drop(
+        columns=["minutes"],
+        errors="ignore"
+    )
+
+    player_game_log["TEAM_ID"] = pd.to_numeric(
+        player_game_log["TEAM_ID"], errors="coerce"
+    ).astype("Int64")
+
+    player_game_log["GAME_ID"] = player_game_log["GAME_ID"].astype(str)
 
     player_game_log = player_game_log.merge(
         team_four_df,
@@ -69,10 +87,12 @@ def enrich_with_team_context(player_game_log, game_id, governor):
     }
 
     player_game_log = player_game_log.rename(
-        columns={k: v for k, v in team_rename_map.items()
-                 if k in player_game_log.columns}
+        columns={
+            k: v for k, v in team_rename_map.items()
+            if k in player_game_log.columns
+        }
     )
 
-    governor.sleep_endpoint()
+    _governor.sleep_endpoint()
 
     return player_game_log
