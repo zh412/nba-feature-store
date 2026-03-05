@@ -41,7 +41,7 @@ def print_header():
     print("\n================ GAME INTEGRITY AUDIT ================\n")
 
     print(f"Current Eastern Date : {current_eastern}")
-    print(f"Audit Date           : {audit_date}\n")
+    print(f"Audit Window End     : {audit_date}\n")
 
 
 # ============================================================
@@ -61,14 +61,14 @@ def check_team_counts():
     FROM `{TABLE_ID}`
     WHERE GAME_DATE = DATE('{audit_date}')
     GROUP BY GAME_ID
-    HAVING team_count < 2
+    HAVING team_count != 2
     """
 
     df = client.query(query).to_dataframe()
 
     if len(df) == 0:
 
-        print("\n✓ All games contain two teams.\n")
+        print("\n✓ All games contain exactly two teams.\n")
 
     else:
 
@@ -77,13 +77,13 @@ def check_team_counts():
 
 
 # ============================================================
-# PLAYER COUNT CHECK
+# PLAYER COUNT CHECK (TEAM LEVEL)
 # ============================================================
 
 def check_player_counts():
 
     print("--------------------------------------------------")
-    print("Teams With Low Player Counts")
+    print("Teams With Suspiciously Low Player Counts")
     print("--------------------------------------------------")
 
     query = f"""
@@ -101,43 +101,77 @@ def check_player_counts():
 
     if len(df) == 0:
 
-        print("\n✓ All teams have valid player counts.\n")
+        print("\n✓ All teams have reasonable player counts.\n")
 
     else:
 
-        print("\nPotential issues:\n")
+        print("\nPotential issues detected:\n")
         print(df)
 
 
 # ============================================================
-# GAME TOTAL CHECK
+# TOTAL PLAYER COUNT PER GAME
 # ============================================================
 
-def check_game_totals():
+def check_total_player_counts():
 
     print("--------------------------------------------------")
-    print("Suspicious Game Totals")
+    print("Games With Suspiciously Low Total Player Counts")
     print("--------------------------------------------------")
 
     query = f"""
     SELECT
         GAME_ID,
-        SUM(points) AS total_points
+        COUNT(DISTINCT PLAYER_ID) AS total_players
     FROM `{TABLE_ID}`
     WHERE GAME_DATE = DATE('{audit_date}')
     GROUP BY GAME_ID
-    HAVING total_points < 120
+    HAVING total_players < 10
     """
 
     df = client.query(query).to_dataframe()
 
     if len(df) == 0:
 
-        print("\n✓ No suspicious game totals detected.\n")
+        print("\n✓ All games contain reasonable total player counts.\n")
 
     else:
 
         print("\nPotential corrupted games:\n")
+        print(df)
+
+
+# ============================================================
+# CORRUPTED ROW CHECK
+# ============================================================
+
+def check_corrupted_rows():
+
+    print("--------------------------------------------------")
+    print("Corrupted Row Check")
+    print("--------------------------------------------------")
+
+    query = f"""
+    SELECT *
+    FROM `{TABLE_ID}`
+    WHERE GAME_DATE = DATE('{audit_date}')
+    AND (
+        PLAYER_ID IS NULL
+        OR TEAM_ID IS NULL
+        OR GAME_ID IS NULL
+    )
+    LIMIT 20
+    """
+
+    df = client.query(query).to_dataframe()
+
+    if len(df) == 0:
+
+        print("\n✓ No corrupted rows detected.\n")
+
+    else:
+
+        print("\nPotential corrupted rows detected:\n")
         print(df)
 
 
@@ -151,7 +185,8 @@ def run_audit():
 
     check_team_counts()
     check_player_counts()
-    check_game_totals()
+    check_total_player_counts()
+    check_corrupted_rows()
 
     print("====================================================\n")
 
