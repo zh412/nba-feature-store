@@ -2,6 +2,8 @@
 # NBA FEATURE STORE PIPELINE ENTRY POINT
 # ============================================================
 
+import sys
+
 from config import (
     START_DATE,
     END_DATE,
@@ -69,6 +71,24 @@ def main():
         print(f"  ✗ {d}")
 
     print("\n=============================================\n")
+
+    # ------------------------------------------------------------
+    # PIPELINE STATUS SIGNAL
+    # ------------------------------------------------------------
+
+    if len(failed_days) == 0:
+
+        print("PIPELINE STATUS: SUCCESS\n")
+
+        # Exit code 0 signals success to schedulers
+        sys.exit(0)
+
+    else:
+
+        print("PIPELINE STATUS: FAILURE\n")
+
+        # Exit code 1 signals failure to schedulers
+        sys.exit(1)
 
 
 # ============================================================
