@@ -29,6 +29,9 @@ eastern = pytz.timezone("US/Eastern")
 
 current_eastern = datetime.now(eastern).date()
 
+# NBA 2025-26 season start (same as notebook)
+SEASON_START_DATE = "2025-10-21"
+
 
 # ============================================================
 # HEADER
@@ -47,6 +50,7 @@ def print_header():
 
 def fetch_feature_store_status():
 
+    # Partition filter required by BigQuery
     query = f"""
     SELECT
         MAX(GAME_DATE) AS last_ingest_date,
@@ -55,6 +59,7 @@ def fetch_feature_store_status():
         COUNT(DISTINCT PLAYER_ID) AS unique_players,
         COUNT(DISTINCT GAME_DATE) AS partition_count
     FROM `{TABLE_ID}`
+    WHERE GAME_DATE >= DATE('{SEASON_START_DATE}')
     """
 
     df = client.query(query).to_dataframe()
