@@ -54,17 +54,23 @@ def run_batches(run_dates):
 
     batches = list(chunk_dates(run_dates, CHUNK_SIZE_DAYS))
 
-    log("INFO", f"Starting batch ingestion ({len(batches)} batches)")
+    # ------------------------------------------------------------
+    # NOTEBOOK-EQUIVALENT LOGGING
+    # ------------------------------------------------------------
+
+    log("INFO", f"Total run dates: {len(run_dates)}")
+    log("INFO", f"Batch size: {CHUNK_SIZE_DAYS} days")
+
+    # ------------------------------------------------------------
+    # BATCH LOOP
+    # ------------------------------------------------------------
 
     for batch_index, batch in enumerate(batches, start=1):
 
-        log("INFO", f"--- Batch {batch_index}/{len(batches)} ---")
-
-        # ------------------------------------------------------------
-        # RESET NBA SESSION EACH BATCH
-        # ------------------------------------------------------------
-
         reset_nba_session()
+
+        log("INFO", "NBA session reset for new batch.")
+        log("INFO", f"========== STARTING BATCH {batch_index} ==========")
 
         # ------------------------------------------------------------
         # RUN INGESTION PIPELINE
@@ -75,10 +81,14 @@ def run_batches(run_dates):
         successful_days.extend(batch_success)
         failed_days.extend(batch_fail)
 
+        log("INFO", f"Batch {batch_index} complete.")
+
         # ------------------------------------------------------------
         # BATCH COOLDOWN
         # ------------------------------------------------------------
 
         rate_governor.sleep_batch()
+
+    log("INFO", "Multi-day ingestion complete.")
 
     return successful_days, failed_days
