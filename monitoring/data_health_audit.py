@@ -1,19 +1,19 @@
 # ============================================================
 # DATA HEALTH AUDIT
-# Notebook-Equivalent Implementation
+# Notebook-Parity Implementation
 # ============================================================
 
 import sys
 import os
 from datetime import datetime, timedelta
 import pandas as pd
+import pytz
 
 # Allow repo imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.cloud import bigquery
 from config import TABLE_ID
-from utils.logging import log
 
 
 # ============================================================
@@ -24,13 +24,39 @@ client = bigquery.Client()
 
 
 # ============================================================
-# AUDIT WINDOW
+# TIMEZONE (NOTEBOOK USES EASTERN)
+# ============================================================
+
+eastern = pytz.timezone("US/Eastern")
+
+current_eastern = datetime.now(eastern).date()
+
+audit_end = current_eastern - timedelta(days=1)
+
+
+# ============================================================
+# SEASON CONFIGURATION
 # ============================================================
 
 SEASON_START = "2025-10-21"
 
-today = datetime.utcnow().date()
-audit_end = today - timedelta(days=1)
+# Notebook exclusion dates
+EXCLUDED_DATES = {
+
+    # Thanksgiving
+    "2025-11-27",
+
+    # Christmas Eve
+    "2025-12-24",
+
+    # All-Star Break
+    "2026-02-13",
+    "2026-02-14",
+    "2026-02-15",
+    "2026-02-16",
+    "2026-02-17",
+    "2026-02-18"
+}
 
 
 # ============================================================
@@ -41,7 +67,7 @@ def print_header():
 
     print("\n================ DATA HEALTH AUDIT ================\n")
 
-    print(f"Current UTC Date : {today}")
+    print(f"Current Eastern Date : {current_eastern}")
     print("AUDIT WINDOW:")
     print(f"Season Start : {SEASON_START}")
     print(f"Audit End    : {audit_end}\n")
@@ -88,14 +114,17 @@ def detect_missing_dates(df):
 
     all_dates = pd.date_range(SEASON_START, audit_end)
 
-    existing = set(df["GAME_DATE"])
+    existing = set(df["GAME_DATE"].astype(str))
 
     missing = []
 
     for d in all_dates:
 
-        if d.date() not in existing:
-            missing.append(d.date())
+        d_str = str(d.date())
+
+        if d_str not in existing and d_str not in EXCLUDED_DATES:
+
+            missing.append(d_str)
 
     if len(missing) == 0:
 
