@@ -122,6 +122,10 @@ def run_pipeline(run_dates):
 
             daily_df = pd.concat(all_game_logs, ignore_index=True)
 
+            # ------------------------------------------------------------
+            # MINUTES NORMALIZATION
+            # ------------------------------------------------------------
+
             daily_df["minutes"] = (
                 daily_df.get("minutes", "0:00")
                 .fillna("0:00")
@@ -132,6 +136,10 @@ def run_pipeline(run_dates):
                 daily_df["minutes"].apply(minutes_to_seconds)
             )
 
+            # ------------------------------------------------------------
+            # ROW KEY + GAME DATE
+            # ------------------------------------------------------------
+
             daily_df["ROW_KEY"] = (
                 daily_df["GAME_ID"].astype(str)
                 + "_"
@@ -140,11 +148,27 @@ def run_pipeline(run_dates):
 
             daily_df["GAME_DATE"] = run_date
 
+            # ------------------------------------------------------------
+            # VALIDATION
+            # ------------------------------------------------------------
+
             validate_daily_dataframe(daily_df)
+
+            # ------------------------------------------------------------
+            # SCHEMA ALIGNMENT (CRITICAL FIX)
+            # ------------------------------------------------------------
 
             expected_columns = list(SCHEMA_DEFINITION.keys())
 
+            for col in expected_columns:
+                if col not in daily_df.columns:
+                    daily_df[col] = None
+
             daily_df = daily_df[expected_columns]
+
+            # ------------------------------------------------------------
+            # ENSURE TABLE EXISTS
+            # ------------------------------------------------------------
 
             try:
                 table = client.get_table(TABLE_ID)
@@ -164,12 +188,20 @@ def run_pipeline(run_dates):
 
                 client.create_table(table)
 
+            # ------------------------------------------------------------
+            # DELETE EXISTING PARTITION
+            # ------------------------------------------------------------
+
             client.query(
                 f"""
                 DELETE FROM `{TABLE_ID}`
                 WHERE GAME_DATE = DATE('{run_date}')
                 """
             ).result()
+
+            # ------------------------------------------------------------
+            # LOAD DATA
+            # ------------------------------------------------------------
 
             client.load_table_from_dataframe(
                 daily_df,
