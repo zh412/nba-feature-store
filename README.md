@@ -12,6 +12,22 @@ The pipeline was initially prototyped in a notebook environment and later refact
 
 ---
 
+## Quick Start
+
+Install dependencies:
+
+pip install -r requirements.txt
+
+Run daily ingestion:
+
+python main.py
+
+Check pipeline health:
+
+python monitoring/feature_store_command_center.py
+
+---
+
 ## Architecture
 
 ```mermaid
