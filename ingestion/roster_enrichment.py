@@ -1,13 +1,33 @@
+# ============================================================
+# ROSTER METADATA ENRICHMENT
+# ============================================================
+
 import pandas as pd
+
 from nba_api.stats.endpoints import commonteamroster
 
+from utils.retry import call_with_retry
+from utils.logging import log
 
-def enrich_with_roster(player_game_log, team_ids, governor):
+
+# ------------------------------------------------------------
+# ROSTER CACHE
+# ------------------------------------------------------------
+
+# Prevents repeated roster API calls for the same team
+ROSTER_CACHE = {}
+
+
+# ------------------------------------------------------------
+# ENRICHMENT FUNCTION
+# ------------------------------------------------------------
+
+def enrich_roster_metadata(player_game_log):
     """
-    Pull roster metadata for both teams in a game and merge
-    it into the player game dataframe.
+    Pull roster metadata for teams in a game and merge it
+    into the player game dataframe.
 
-    Adds the following columns:
+    Adds columns:
 
     POSITION
     HEIGHT
@@ -15,43 +35,76 @@ def enrich_with_roster(player_game_log, team_ids, governor):
     EXP
     """
 
+    if "TEAM_ID" not in player_game_log.columns:
+        return player_game_log
+
+    team_ids = player_game_log["TEAM_ID"].dropna().unique()
+
     roster_frames = []
 
     for team_id in team_ids:
 
-        governor.register_request()
+        try:
 
-        roster_endpoint = commonteamroster.CommonTeamRoster(
-            team_id=team_id,
-            timeout=45
-        )
+            team_id = int(team_id)
 
-        roster_df = roster_endpoint.get_data_frames()[0]
+            # ------------------------------------------------
+            # USE CACHE IF AVAILABLE
+            # ------------------------------------------------
 
-        roster_df["PLAYER_ID"] = pd.to_numeric(
-            roster_df["PLAYER_ID"], errors="coerce"
-        ).astype("Int64")
+            if team_id in ROSTER_CACHE:
+                roster_frames.append(ROSTER_CACHE[team_id])
+                continue
 
-        roster_frames.append(
-            roster_df[["PLAYER_ID", "POSITION", "HEIGHT", "WEIGHT", "EXP"]]
-        )
+            # ------------------------------------------------
+            # API CALL
+            # ------------------------------------------------
 
-        governor.sleep_endpoint()
+            roster_endpoint = call_with_retry(
+                commonteamroster.CommonTeamRoster,
+                team_id=team_id,
+                timeout=45
+            )
 
-    roster_clean = (
+            roster_df = roster_endpoint.get_data_frames()[0]
+
+            roster_df["PLAYER_ID"] = pd.to_numeric(
+                roster_df["PLAYER_ID"], errors="coerce"
+            ).astype("Int64")
+
+            roster_clean = roster_df[
+                ["PLAYER_ID", "POSITION", "HEIGHT", "WEIGHT", "EXP"]
+            ].copy()
+
+            roster_clean["WEIGHT"] = pd.to_numeric(
+                roster_clean["WEIGHT"], errors="coerce"
+            )
+
+            roster_clean["HEIGHT"] = roster_clean["HEIGHT"].astype(str)
+            roster_clean["EXP"] = roster_clean["EXP"].astype(str)
+
+            ROSTER_CACHE[team_id] = roster_clean
+
+            roster_frames.append(roster_clean)
+
+        except Exception as e:
+
+            log("WARNING", f"Roster pull failed for team {team_id}: {e}")
+
+    if not roster_frames:
+        return player_game_log
+
+    roster_all = (
         pd.concat(roster_frames, ignore_index=True)
         .drop_duplicates("PLAYER_ID")
     )
 
-    roster_clean["WEIGHT"] = pd.to_numeric(
-        roster_clean["WEIGHT"], errors="coerce"
-    )
-
-    roster_clean["HEIGHT"] = roster_clean["HEIGHT"].astype(str)
-    roster_clean["EXP"] = roster_clean["EXP"].astype(str)
+    player_game_log["PLAYER_ID"] = pd.to_numeric(
+        player_game_log["PLAYER_ID"], errors="coerce"
+    ).astype("Int64")
 
     player_game_log = player_game_log.merge(
-        roster_clean,
+        roster_all,
         on="PLAYER_ID",
         how="left",
         validate="m:1"
