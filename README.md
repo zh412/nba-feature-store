@@ -14,26 +14,35 @@ The pipeline was initially prototyped in a notebook environment and later refact
 
 ## Architecture
 
-NBA Stats API
-      │
-      ▼
-Endpoint Pull Layer
-(traditional / advanced / usage / tracking)
-      │
-      ▼
-Merge + Feature Engineering
-      │
-      ▼
-Validation Layer
-      │
-      ▼
-BigQuery Feature Store
-(pr_see_daily_player_game_log)
-      │
-      ▼
-Monitoring & Integrity Audits
+```mermaid
+flowchart TD
 
-This architecture follows a typical analytics engineering pipeline pattern separating ingestion, validation, storage, and monitoring layers.
+A[NBA Stats API] --> B[Endpoint Pull Layer]
+
+B --> C1[Traditional Box Score]
+B --> C2[Advanced Box Score]
+B --> C3[Usage Stats]
+B --> C4[Player Tracking]
+B --> C5[Team Four Factors]
+B --> C6[Game Summary]
+B --> C7[Team Roster]
+
+C1 --> D[Merge + Feature Engineering]
+C2 --> D
+C3 --> D
+C4 --> D
+C5 --> D
+C6 --> D
+C7 --> D
+
+D --> E[Validation Layer]
+
+E --> F[BigQuery Feature Store]
+
+F --> G[Analytics / Modeling Systems]
+```
+
+This architecture follows a typical analytics engineering pipeline pattern separating ingestion, feature engineering, validation, and warehouse storage layers.
 
 ---
 
@@ -54,16 +63,16 @@ These safeguards ensure the pipeline remains stable, reliable, and reproducible 
 
 ## Feature Store Table
 
-pr_see_daily_player_game_log
+`pr_see_daily_player_game_log`
 
 ### Partitioning
 
-GAME_DATE
+`GAME_DATE`
 
 ### Clustering
 
-PLAYER_ID  
-TEAM_ID
+`PLAYER_ID`  
+`TEAM_ID`
 
 Partition filtering is enforced to prevent accidental full-table scans and control BigQuery query costs.
 
@@ -91,7 +100,7 @@ These endpoints are merged to generate a comprehensive player-level feature set 
 ## Technology Stack
 
 Python  
-NBA API (nba_api)  
+NBA API (`nba_api`)  
 Google BigQuery  
 Pandas  
 Requests  
@@ -164,28 +173,30 @@ These monitoring tools allow quick verification that the pipeline is functioning
 
 ## Project Structure
 
+```
 nba-feature-store
 │
-├── main.py  
-├── config.py  
-├── schema.py  
+├── main.py
+├── config.py
+├── schema.py
 │
-├── ingestion  
-│   ├── ingestion_engine.py  
-│   └── pull_games.py  
+├── ingestion
+│   ├── ingestion_engine.py
+│   └── pull_games.py
 │
-├── utils  
-│   ├── retry.py  
-│   ├── validation.py  
-│   ├── logging.py  
-│   └── dates.py  
+├── utils
+│   ├── retry.py
+│   ├── validation.py
+│   ├── logging.py
+│   └── dates.py
 │
-├── requirements.txt  
-├── README.md  
+├── requirements.txt
+├── README.md
 │
-└── notebook_prototype  
-    ├── feature_store_pipeline.ipynb  
-    └── Portfolio_Player_Stats_Generated_and_Logged_System.ipynb  
+└── notebook_prototype
+    ├── feature_store_pipeline.ipynb
+    └── Portfolio_Player_Stats_Generated_and_Logged_System.ipynb
+```
 
 ### Structure Overview
 
@@ -204,13 +215,17 @@ The notebook prototype demonstrates the transition from exploratory development 
 
 Install dependencies:
 
+```
 pip install -r requirements.txt
+```
 
 Run the pipeline:
 
+```
 python main.py
+```
 
-Runtime behavior is controlled through config.py which supports both automatic daily ingestion and manual historical backfills.
+Runtime behavior is controlled through `config.py` which supports both automatic daily ingestion and manual historical backfills.
 
 ---
 
