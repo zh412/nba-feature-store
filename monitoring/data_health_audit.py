@@ -1,124 +1,133 @@
 # ============================================================
 # DATA HEALTH AUDIT
+# Notebook-Equivalent Implementation
 # ============================================================
 
 import sys
 import os
+from datetime import datetime, timedelta
+import pandas as pd
 
-# Allow imports from project root
+# Allow repo imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.cloud import bigquery
-from utils.logging import log
 from config import TABLE_ID
+from utils.logging import log
 
 
 # ============================================================
-# INITIALIZE CLIENT
+# CLIENT
 # ============================================================
 
 client = bigquery.Client()
 
 
 # ============================================================
-# CHECK 1 — DAILY ROW COUNTS
+# AUDIT WINDOW
 # ============================================================
 
-def check_daily_row_counts():
+SEASON_START = "2025-10-21"
 
-    log("INFO", "Checking daily row counts...")
+today = datetime.utcnow().date()
+audit_end = today - timedelta(days=1)
+
+
+# ============================================================
+# HEADER
+# ============================================================
+
+def print_header():
+
+    print("\n================ DATA HEALTH AUDIT ================\n")
+
+    print(f"Current UTC Date : {today}")
+    print("AUDIT WINDOW:")
+    print(f"Season Start : {SEASON_START}")
+    print(f"Audit End    : {audit_end}\n")
+
+
+# ============================================================
+# DAILY TABLE STATUS
+# ============================================================
+
+def daily_table_status():
+
+    print("--------------------------------------------------")
+    print("Daily Table Status")
+    print("--------------------------------------------------\n")
 
     query = f"""
     SELECT
         GAME_DATE,
-        COUNT(*) AS row_count
+        COUNT(*) AS total_rows,
+        COUNT(DISTINCT ROW_KEY) AS distinct_row_keys,
+        COUNT(*) - COUNT(DISTINCT ROW_KEY) AS duplicate_row_keys
     FROM `{TABLE_ID}`
-    WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-    GROUP BY GAME_DATE
-    ORDER BY GAME_DATE DESC
-    """
-
-    df = client.query(query).to_dataframe()
-
-    print("\nDaily Row Counts (Last 30 Days)\n")
-    print(df.head(20))
-
-
-# ============================================================
-# CHECK 2 — DUPLICATE ROW KEYS
-# ============================================================
-
-def check_duplicate_rows():
-
-    log("INFO", "Checking duplicate ROW_KEY values...")
-
-    query = f"""
-    SELECT
-        ROW_KEY,
-        COUNT(*) AS duplicate_count
-    FROM `{TABLE_ID}`
-    WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-    GROUP BY ROW_KEY
-    HAVING COUNT(*) > 1
-    ORDER BY duplicate_count DESC
-    """
-
-    df = client.query(query).to_dataframe()
-
-    if len(df) == 0:
-
-        log("INFO", "No duplicate rows detected.")
-
-    else:
-
-        print("\nDuplicate Rows Detected\n")
-        print(df.head(20))
-
-
-# ============================================================
-# CHECK 3 — MISSING GAME DATES
-# ============================================================
-
-def check_missing_dates():
-
-    log("INFO", "Checking for missing game dates...")
-
-    query = f"""
-    SELECT
-        GAME_DATE,
-        COUNT(*) AS row_count
-    FROM `{TABLE_ID}`
-    WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+    WHERE GAME_DATE BETWEEN DATE('{SEASON_START}') AND DATE('{audit_end}')
     GROUP BY GAME_DATE
     ORDER BY GAME_DATE
     """
 
     df = client.query(query).to_dataframe()
 
-    missing_dates = []
+    print(df)
 
-    for i in range(1, len(df)):
+    return df
 
-        prev_date = df.iloc[i - 1]["GAME_DATE"]
-        curr_date = df.iloc[i]["GAME_DATE"]
 
-        diff = (curr_date - prev_date).days
+# ============================================================
+# MISSING DATE DETECTION
+# ============================================================
 
-        if diff > 1:
+def detect_missing_dates(df):
 
-            missing_dates.append((prev_date, curr_date))
+    print("\n--------------------------------------------------")
+    print("Missing Regular Season Dates")
+    print("--------------------------------------------------")
 
-    if len(missing_dates) == 0:
+    all_dates = pd.date_range(SEASON_START, audit_end)
 
-        log("INFO", "No missing game dates detected.")
+    existing = set(df["GAME_DATE"])
+
+    missing = []
+
+    for d in all_dates:
+
+        if d.date() not in existing:
+            missing.append(d.date())
+
+    if len(missing) == 0:
+
+        print("\n✓ No missing dates detected.")
 
     else:
 
-        print("\nPotential Missing Date Gaps\n")
+        print("\nMissing Dates:\n")
 
-        for prev_date, curr_date in missing_dates:
+        for m in missing:
+            print(m)
 
-            print(f"{prev_date} -> {curr_date}")
+
+# ============================================================
+# DUPLICATE CHECK
+# ============================================================
+
+def duplicate_check(df):
+
+    print("\n--------------------------------------------------")
+    print("Duplicate ROW_KEY Issues")
+    print("--------------------------------------------------")
+
+    dupes = df[df["duplicate_row_keys"] > 0]
+
+    if len(dupes) == 0:
+
+        print("\n✓ No duplicate ROW_KEY values detected.")
+
+    else:
+
+        print(dupes)
 
 
 # ============================================================
@@ -127,17 +136,19 @@ def check_missing_dates():
 
 def run_audit():
 
-    log("INFO", "Running Data Health Audit")
+    print_header()
 
-    check_daily_row_counts()
-    check_duplicate_rows()
-    check_missing_dates()
+    df = daily_table_status()
 
-    log("INFO", "Audit complete.")
+    detect_missing_dates(df)
+
+    duplicate_check(df)
+
+    print("\n==================================================\n")
 
 
 # ============================================================
-# SCRIPT ENTRYPOINT
+# ENTRY
 # ============================================================
 
 if __name__ == "__main__":
