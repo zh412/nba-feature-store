@@ -122,7 +122,7 @@ def check_game_totals():
     query = f"""
     SELECT
         GAME_ID,
-        SUM(PTS) AS total_points
+        SUM(points) AS total_points
     FROM `{TABLE_ID}`
     WHERE GAME_DATE = DATE('{audit_date}')
     GROUP BY GAME_ID
