@@ -57,7 +57,7 @@ def run_pipeline(run_dates):
 
         run_date_str = run_date.strftime("%m/%d/%Y")
 
-        log("INFO", f"Starting ingestion for {run_date_str}")
+        log("INFO", f"Starting processing for {run_date_str}")
 
         try:
 
