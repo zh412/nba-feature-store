@@ -1,5 +1,6 @@
 nba_api
 pandas
 google-cloud-bigquery
+google-cloud-bigquery-storage
 pandas-gbq
 requests
