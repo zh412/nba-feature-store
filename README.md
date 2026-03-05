@@ -1,5 +1,7 @@
 # NBA Feature Store Pipeline
 
+![NBA Feature Store Architecture](nba_feature_store_pipeline_architecture.png)
+
 ## Overview
 
 This project implements a production-style NBA data pipeline that ingests player game statistics from the NBA Stats API and stores them in a partitioned Google BigQuery feature store.
