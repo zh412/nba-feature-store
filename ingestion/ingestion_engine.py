@@ -3,64 +3,32 @@
 # ============================================================
 
 import pandas as pd
-import requests
 import time
 
-from collections import deque
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 
-from nba_api.stats.endpoints import (
-    scoreboardv3,
-    commonteamroster,
-    boxscorefourfactorsv3,
-    boxscoresummaryv3
-)
+from nba_api.stats.endpoints import scoreboardv3
 
 from utils.logging import log
 from utils.retry import call_with_retry
 from utils.validation import validate_daily_dataframe
 from utils.dates import minutes_to_seconds
 
+from utils.nba_session import configure_nba_session
+from utils.rate_governor import RateGovernor
+from utils.schema_enforcer import enforce_schema
+from utils.column_cleaner import clean_tracking_columns
+from utils.post_load_check import verify_bigquery_load
+from utils.run_tracker import RunTracker
+
 from ingestion.pull_games import pull_full_player_table
+from ingestion.roster_enrichment import enrich_roster_metadata
+from ingestion.team_context import enrich_team_context
+from ingestion.game_metadata import enrich_game_metadata
 
 from config import TABLE_ID
 from schema import SCHEMA_DEFINITION
-
-
-# ============================================================
-# RATE GOVERNOR
-# ============================================================
-
-class RateGovernor:
-
-    def __init__(self):
-
-        self.window_seconds = 300
-        self.request_timestamps = deque()
-
-        self.base_endpoint_delay = 0.6
-        self.base_game_delay = 0.9
-        self.base_day_delay = 3.0
-
-    def register_request(self):
-
-        now = time.time()
-
-        self.request_timestamps.append(now)
-
-        while self.request_timestamps and \
-              now - self.request_timestamps[0] > self.window_seconds:
-            self.request_timestamps.popleft()
-
-    def sleep_endpoint(self):
-        time.sleep(self.base_endpoint_delay)
-
-    def sleep_game(self):
-        time.sleep(self.base_game_delay)
-
-    def sleep_day(self):
-        time.sleep(self.base_day_delay)
 
 
 # ============================================================
@@ -69,12 +37,21 @@ class RateGovernor:
 
 def run_pipeline(run_dates):
 
+    # ------------------------------------------------------------
+    # SYSTEM INITIALIZATION
+    # ------------------------------------------------------------
+
+    configure_nba_session()
+
     client = bigquery.Client()
 
-    governor = RateGovernor()
+    rate_governor = RateGovernor()
 
-    successful_days = []
-    failed_days = []
+    run_tracker = RunTracker()
+
+    # ------------------------------------------------------------
+    # MAIN DATE LOOP
+    # ------------------------------------------------------------
 
     for run_date in run_dates:
 
@@ -84,7 +61,11 @@ def run_pipeline(run_dates):
 
         try:
 
-            governor.register_request()
+            # ------------------------------------------------------------
+            # SCOREBOARD REQUEST
+            # ------------------------------------------------------------
+
+            rate_governor.register_request()
 
             scoreboard = call_with_retry(
                 scoreboardv3.ScoreboardV3,
@@ -100,13 +81,17 @@ def run_pipeline(run_dates):
 
                 log("WARNING", f"No games found for {run_date_str}")
 
-                governor.sleep_day()
+                rate_governor.sleep_day()
 
                 continue
 
             games_df["GAME_ID"] = games_df["gameId"]
 
             all_game_logs = []
+
+            # ------------------------------------------------------------
+            # GAME LOOP
+            # ------------------------------------------------------------
 
             for game_id in games_df["GAME_ID"]:
 
@@ -116,9 +101,29 @@ def run_pipeline(run_dates):
 
                 player_game_log["GAME_ID"] = str(game_id)
 
+                # --------------------------------------------------------
+                # FEATURE ENRICHMENT
+                # --------------------------------------------------------
+
+                player_game_log = enrich_roster_metadata(player_game_log)
+
+                player_game_log = enrich_team_context(
+                    player_game_log,
+                    game_id
+                )
+
+                player_game_log = enrich_game_metadata(
+                    player_game_log,
+                    game_id
+                )
+
                 all_game_logs.append(player_game_log)
 
-                governor.sleep_game()
+                rate_governor.sleep_game()
+
+            # ------------------------------------------------------------
+            # CONCAT DAILY DATAFRAME
+            # ------------------------------------------------------------
 
             daily_df = pd.concat(all_game_logs, ignore_index=True)
 
@@ -149,13 +154,19 @@ def run_pipeline(run_dates):
             daily_df["GAME_DATE"] = run_date
 
             # ------------------------------------------------------------
-            # VALIDATION
+            # DATAFRAME VALIDATION
             # ------------------------------------------------------------
 
             validate_daily_dataframe(daily_df)
 
             # ------------------------------------------------------------
-            # SCHEMA ALIGNMENT (CRITICAL FIX)
+            # COLUMN CLEANING
+            # ------------------------------------------------------------
+
+            daily_df = clean_tracking_columns(daily_df)
+
+            # ------------------------------------------------------------
+            # SCHEMA ENFORCEMENT
             # ------------------------------------------------------------
 
             expected_columns = list(SCHEMA_DEFINITION.keys())
@@ -166,11 +177,14 @@ def run_pipeline(run_dates):
 
             daily_df = daily_df[expected_columns]
 
+            daily_df = enforce_schema(daily_df)
+
             # ------------------------------------------------------------
-            # ENSURE TABLE EXISTS
+            # ENSURE BIGQUERY TABLE EXISTS
             # ------------------------------------------------------------
 
             try:
+
                 table = client.get_table(TABLE_ID)
 
             except NotFound:
@@ -200,7 +214,7 @@ def run_pipeline(run_dates):
             ).result()
 
             # ------------------------------------------------------------
-            # LOAD DATA
+            # LOAD DATA INTO BIGQUERY
             # ------------------------------------------------------------
 
             client.load_table_from_dataframe(
@@ -211,18 +225,35 @@ def run_pipeline(run_dates):
                 )
             ).result()
 
+            # ------------------------------------------------------------
+            # POST LOAD VERIFICATION
+            # ------------------------------------------------------------
+
+            verify_bigquery_load(
+                client,
+                TABLE_ID,
+                run_date,
+                len(daily_df)
+            )
+
             log("INFO", f"Completed ingestion for {run_date_str}")
 
-            successful_days.append(run_date_str)
+            run_tracker.record_success(run_date_str)
 
-            governor.sleep_day()
+            rate_governor.sleep_day()
 
         except Exception as e:
 
             log("ERROR", f"Failure on {run_date_str}: {e}")
 
-            failed_days.append(run_date_str)
+            run_tracker.record_failure(run_date_str)
 
             continue
 
-    return successful_days, failed_days
+    # ------------------------------------------------------------
+    # FINAL RUN SUMMARY
+    # ------------------------------------------------------------
+
+    run_tracker.print_summary()
+
+    return run_tracker.successful_days, run_tracker.failed_days
