@@ -33,13 +33,14 @@ def check_daily_row_counts():
         GAME_DATE,
         COUNT(*) AS row_count
     FROM `{TABLE_ID}`
+    WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
     GROUP BY GAME_DATE
     ORDER BY GAME_DATE DESC
     """
 
     df = client.query(query).to_dataframe()
 
-    print("\nDaily Row Counts\n")
+    print("\nDaily Row Counts (Last 30 Days)\n")
     print(df.head(20))
 
 
@@ -56,6 +57,7 @@ def check_duplicate_rows():
         ROW_KEY,
         COUNT(*) AS duplicate_count
     FROM `{TABLE_ID}`
+    WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
     GROUP BY ROW_KEY
     HAVING COUNT(*) > 1
     ORDER BY duplicate_count DESC
@@ -86,6 +88,7 @@ def check_missing_dates():
         GAME_DATE,
         COUNT(*) AS rows
     FROM `{TABLE_ID}`
+    WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
     GROUP BY GAME_DATE
     ORDER BY GAME_DATE
     """
