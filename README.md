@@ -6,7 +6,7 @@ This project implements a production-style NBA data pipeline that ingests player
 
 The system retrieves data from multiple NBA API endpoints, merges player-level statistics, performs validation checks, and loads the results into a structured analytics warehouse designed for modeling and downstream analysis.
 
-This repository represents Phase 1 — Data Infrastructure, which builds the core feature store layer used for sports analytics and predictive modeling workflows.
+This repository represents **Phase 1 — Data Infrastructure**, which builds the core feature store layer used for sports analytics and predictive modeling workflows.
 
 The pipeline was initially prototyped in a notebook environment and later refactored into a modular Python data pipeline following common data engineering architecture patterns.
 
@@ -49,6 +49,7 @@ This architecture follows a typical analytics engineering pipeline pattern separ
 ## Key Features
 
 - Multi-endpoint NBA API ingestion
+- Persistent NBA API session management
 - Retry-protected API calls with exponential backoff
 - Adaptive rate limiting to prevent API throttling
 - Schema-locked warehouse design
@@ -56,6 +57,7 @@ This architecture follows a typical analytics engineering pipeline pattern separ
 - Idempotent ingestion (safe reruns)
 - Data validation safeguards
 - Automated integrity audits and monitoring tools
+- Batch ingestion engine for safe historical backfills
 
 These safeguards ensure the pipeline remains stable, reliable, and reproducible during daily ingestion.
 
@@ -84,14 +86,14 @@ The feature store is designed to support modeling-ready player game features.
 
 NBA Stats API endpoints used in this pipeline:
 
-- boxscoretraditionalv3
-- boxscoreadvancedv3
-- boxscoreusagev3
-- boxscoreplayertrackv3
-- boxscorefourfactorsv3
-- boxscoresummaryv3
-- scoreboardv3
-- commonteamroster
+- `boxscoretraditionalv3`
+- `boxscoreadvancedv3`
+- `boxscoreusagev3`
+- `boxscoreplayertrackv3`
+- `boxscorefourfactorsv3`
+- `boxscoresummaryv3`
+- `scoreboardv3`
+- `commonteamroster`
 
 These endpoints are merged to generate a comprehensive player-level feature set for each NBA game.
 
@@ -135,6 +137,10 @@ Each game date is processed as a complete atomic unit.
 
 If any game fails during ingestion, the entire day is aborted to prevent partial or inconsistent data loads.
 
+### Safe Historical Backfills
+
+The ingestion system includes a batch processing engine which allows controlled historical ingestion while protecting against API throttling.
+
 ---
 
 ## Monitoring & Data Integrity
@@ -155,6 +161,7 @@ Validates:
 
 - every game contains exactly two teams
 - teams have reasonable player counts
+- games contain valid player totals
 - no corrupted player rows exist
 
 ### Feature Store Command Center
@@ -182,13 +189,28 @@ nba-feature-store
 │
 ├── ingestion
 │   ├── ingestion_engine.py
-│   └── pull_games.py
+│   ├── pull_games.py
+│   ├── batch_engine.py
+│   ├── roster_enrichment.py
+│   ├── team_context.py
+│   └── game_metadata.py
 │
 ├── utils
 │   ├── retry.py
 │   ├── validation.py
 │   ├── logging.py
-│   └── dates.py
+│   ├── dates.py
+│   ├── nba_session.py
+│   ├── rate_governor.py
+│   ├── schema_enforcer.py
+│   ├── column_cleaner.py
+│   ├── post_load_check.py
+│   └── run_tracker.py
+│
+├── monitoring
+│   ├── data_health_audit.py
+│   ├── game_integrity_audit.py
+│   └── feature_store_command_center.py
 │
 ├── requirements.txt
 ├── README.md
@@ -200,12 +222,17 @@ nba-feature-store
 
 ### Structure Overview
 
-main.py — pipeline entry point  
-config.py — pipeline configuration and runtime settings  
-schema.py — BigQuery feature store schema definition  
-ingestion/ — ingestion engine and NBA API pull logic  
-utils/ — reusable pipeline utilities (retry, validation, logging, date handling)  
-notebook_prototype/ — original notebook used during early pipeline development  
+**main.py** — pipeline entry point  
+**config.py** — pipeline configuration and runtime settings  
+**schema.py** — BigQuery feature store schema definition  
+
+**ingestion/** — ingestion engine and NBA API pull logic  
+
+**utils/** — reusable pipeline utilities including session management, rate limiting, validation, and schema enforcement  
+
+**monitoring/** — operational monitoring tools for feature store health  
+
+**notebook_prototype/** — original notebook used during early pipeline development  
 
 The notebook prototype demonstrates the transition from exploratory development to a structured production pipeline.
 
@@ -225,7 +252,29 @@ Run the pipeline:
 python main.py
 ```
 
-Runtime behavior is controlled through `config.py` which supports both automatic daily ingestion and manual historical backfills.
+Runtime behavior is controlled through `config.py`, which supports both automatic daily ingestion and manual historical backfills.
+
+---
+
+## Monitoring the Pipeline
+
+Three monitoring utilities provide operational visibility into the feature store.
+
+Run individually:
+
+```
+python monitoring/data_health_audit.py
+```
+
+```
+python monitoring/game_integrity_audit.py
+```
+
+```
+python monitoring/feature_store_command_center.py
+```
+
+These tools confirm ingestion completeness, detect potential data integrity issues, and monitor overall pipeline health.
 
 ---
 
