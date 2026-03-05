@@ -12,7 +12,7 @@ from config import (
 from utils.dates import generate_date_list
 from utils.logging import log
 
-from ingestion.ingestion_engine import run_pipeline
+from ingestion.batch_engine import run_batches
 
 
 # ============================================================
@@ -23,21 +23,38 @@ def main():
 
     log("INFO", "Starting NBA Feature Store Pipeline")
 
+    # ------------------------------------------------------------
+    # GENERATE RUN DATES
+    # ------------------------------------------------------------
+
     run_dates = generate_date_list(
         START_DATE,
         END_DATE,
         EXCLUDE_DATES
     )
 
+    # ------------------------------------------------------------
+    # BACKFILL SAFETY GUARDRAIL
+    # ------------------------------------------------------------
+
     if len(run_dates) > MAX_DAYS_PER_RUN:
+
         raise ValueError(
             f"Requested {len(run_dates)} days. "
             f"Maximum allowed per run is {MAX_DAYS_PER_RUN}."
         )
 
-    successful_days, failed_days = run_pipeline(run_dates)
+    # ------------------------------------------------------------
+    # RUN BATCH INGESTION
+    # ------------------------------------------------------------
+
+    successful_days, failed_days = run_batches(run_dates)
 
     log("INFO", "Pipeline execution complete")
+
+    # ------------------------------------------------------------
+    # RUN SUMMARY
+    # ------------------------------------------------------------
 
     print("\n================ RUN SUMMARY ================\n")
 
