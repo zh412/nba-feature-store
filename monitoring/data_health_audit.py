@@ -86,7 +86,7 @@ def check_missing_dates():
     query = f"""
     SELECT
         GAME_DATE,
-        COUNT(*) AS rows
+        COUNT(*) AS row_count
     FROM `{TABLE_ID}`
     WHERE GAME_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
     GROUP BY GAME_DATE
