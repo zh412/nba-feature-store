@@ -1,8 +1,17 @@
+# ============================================================
+# GAME METADATA ENRICHMENT
+# ============================================================
+
 import pandas as pd
 from nba_api.stats.endpoints import boxscoresummaryv3
 
+from utils.rate_governor import RateGovernor
 
-def enrich_with_game_metadata(player_game_log, game_id, governor):
+# Shared governor instance for this module
+_governor = RateGovernor()
+
+
+def enrich_game_metadata(player_game_log, game_id):
     """
     Pull game-level metadata and merge it into the player dataframe.
 
@@ -17,7 +26,7 @@ def enrich_with_game_metadata(player_game_log, game_id, governor):
     ARENA_COUNTRY
     """
 
-    governor.register_request()
+    _governor.register_request()
 
     summary = boxscoresummaryv3.BoxScoreSummaryV3(
         game_id=game_id,
@@ -37,6 +46,8 @@ def enrich_with_game_metadata(player_game_log, game_id, governor):
         "ARENA_COUNTRY": summary_data["arena"]["arenaCountry"]
     }])
 
+    player_game_log["GAME_ID"] = player_game_log["GAME_ID"].astype(str)
+
     player_game_log = player_game_log.merge(
         meta_df,
         on="GAME_ID",
@@ -44,6 +55,6 @@ def enrich_with_game_metadata(player_game_log, game_id, governor):
         validate="m:1"
     )
 
-    governor.sleep_endpoint()
+    _governor.sleep_endpoint()
 
     return player_game_log
