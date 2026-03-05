@@ -87,6 +87,12 @@ def run_pipeline(run_dates):
 
             games_df["GAME_ID"] = games_df["gameId"]
 
+            # ------------------------------------------------------------
+            # NOTEBOOK PARITY LOGGING
+            # ------------------------------------------------------------
+
+            log("INFO", f"Processing {len(games_df)} games for {run_date_str}")
+
             all_game_logs = []
 
             # ------------------------------------------------------------
@@ -236,7 +242,11 @@ def run_pipeline(run_dates):
                 len(daily_df)
             )
 
-            log("INFO", f"Completed ingestion for {run_date_str}")
+            # ------------------------------------------------------------
+            # NOTEBOOK PARITY COMPLETION LOG
+            # ------------------------------------------------------------
+
+            log("INFO", f"Completed {run_date_str} — {len(daily_df)} rows inserted")
 
             run_tracker.record_success(run_date_str)
 
