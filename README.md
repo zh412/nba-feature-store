@@ -1,5 +1,9 @@
 # NBA Feature Store Pipeline
 
+![CI](https://github.com/zh412/nba-feature-store/actions/workflows/ci.yml/badge.svg)
+![Lint](https://img.shields.io/badge/code%20style-flake8-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 ## Project Status
 
 Production-ready NBA data pipeline that ingests player-level game statistics from the NBA Stats API into a partitioned BigQuery feature store.
