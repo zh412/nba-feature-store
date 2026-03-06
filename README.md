@@ -16,36 +16,37 @@ The pipeline was initially prototyped in a notebook environment and later refact
 
 ## Quick Start
 
+Clone the repository:
+
+```
+git clone https://github.com/zh412/nba-feature-store.git
+cd nba-feature-store
+```
+
+Create a virtual environment:
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
 Install dependencies:
 
+```
 pip install -r requirements.txt
+```
 
-Run daily ingestion:
+Run the pipeline:
 
+```
 python main.py
+```
 
 Check pipeline health:
 
+```
 python monitoring/feature_store_command_center.py
-
----
-
-## Credentials Setup
-
-⚠️ Credentials are not included in this repository.
-This pipeline requires Google Cloud authentication to access BigQuery.
-
-To run the system locally:
-
-1. Create a Google Cloud project
-2. Enable the BigQuery API
-3. Create a service account
-4. Download the service account key JSON file
-5. Set the environment variable:
-
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service_account_key.json"
-
-Once credentials are configured, the pipeline will connect to your BigQuery project defined in `config.py`.
+```
 
 ---
 
