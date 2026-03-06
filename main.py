@@ -13,6 +13,7 @@ from config import (
 
 from utils.dates import generate_date_list
 from utils.logging import log
+from utils.email_alert import send_failure_email
 
 from ingestion.batch_engine import run_batches
 
@@ -86,6 +87,17 @@ def main():
     else:
 
         print("PIPELINE STATUS: FAILURE\n")
+
+        # --------------------------------------------------------
+        # EMAIL ALERT
+        # --------------------------------------------------------
+
+        try:
+            send_failure_email(
+                "NBA Feature Store pipeline execution failed."
+            )
+        except Exception as e:
+            log("ERROR", f"Failed to send failure alert email: {e}")
 
         # Exit code 1 signals failure to schedulers
         sys.exit(1)
