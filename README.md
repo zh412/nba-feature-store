@@ -14,7 +14,7 @@ Current capabilities:
 
 This repository represents **Phase 1: Data Infrastructure** for a larger sports analytics platform.
 
-![NBA Feature Store Architecture](nba_feature_store_pipeline_architecture.png)
+![NBA Feature Store Architecture](docs/nba_feature_store_pipeline_architecture.png)
 
 ## Overview
 
@@ -157,6 +157,48 @@ F --> G[Analytics / Modeling Systems]
 This architecture follows a typical analytics engineering pipeline pattern separating ingestion, feature engineering, validation, and warehouse storage layers.
 
 ---
+
+## Example Pipeline Execution
+
+The pipeline runs as a command-line job and processes NBA game dates as atomic ingestion batches.
+
+The default configuration runs in **AUTO_YESTERDAY_MODE**, which automatically ingests the previous day's NBA games.
+
+Example pipeline execution:
+
+![Pipeline Run](docs/pipeline_run.png)
+
+## Feature Store Example
+
+Example rows stored in the BigQuery feature store.
+
+The table contains over **110 player-level features** generated from multiple NBA Stats API endpoints.
+
+![Feature Store Example](docs/feature_store_example_1.png)
+
+![Feature Store Advanced Features](docs/feature_store_example_2.png)
+
+## Monitoring and Data Integrity
+
+The pipeline includes operational monitoring tools to ensure the feature store remains healthy and data integrity is maintained.
+
+### Data Health Audit
+
+Detects missing ingestion dates, duplicate row keys, and abnormal daily row counts.
+
+![Data Health Audit](docs/data_health_audit.png)
+
+### Feature Store Command Center
+
+Operational dashboard showing ingestion freshness, total rows, games ingested, and partition counts.
+
+![Feature Store Command Center](docs/feature_store_command_center.png)
+
+### Game Integrity Audit
+
+Validates that every NBA game contains the correct number of teams and players and checks for corrupted rows.
+
+![Game Integrity Audit](docs/game_integrity_audit.png)
 
 ## Key Features
 
