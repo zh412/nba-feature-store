@@ -81,7 +81,12 @@ def enrich_roster_metadata(player_game_log):
             )
 
             roster_clean["HEIGHT"] = roster_clean["HEIGHT"].astype(str)
+
             roster_clean["EXP"] = roster_clean["EXP"].astype(str)
+
+            # ------------------------------------------------
+            # CACHE RESULT
+            # ------------------------------------------------
 
             ROSTER_CACHE[team_id] = roster_clean
 
@@ -94,14 +99,34 @@ def enrich_roster_metadata(player_game_log):
     if not roster_frames:
         return player_game_log
 
+    # ------------------------------------------------------------
+    # CONCATENATE ROSTERS
+    # ------------------------------------------------------------
+
     roster_all = (
         pd.concat(roster_frames, ignore_index=True)
         .drop_duplicates("PLAYER_ID")
     )
 
+    # ------------------------------------------------------------
+    # ENSURE PLAYER_ID TYPES MATCH
+    # ------------------------------------------------------------
+
     player_game_log["PLAYER_ID"] = pd.to_numeric(
         player_game_log["PLAYER_ID"], errors="coerce"
     ).astype("Int64")
+
+    # ------------------------------------------------------------
+    # PREVENT COLUMN COLLISION DURING MERGE
+    # ------------------------------------------------------------
+
+    for col in ["POSITION", "HEIGHT", "WEIGHT", "EXP"]:
+        if col in player_game_log.columns:
+            player_game_log = player_game_log.drop(columns=[col])
+
+    # ------------------------------------------------------------
+    # MERGE ROSTER DATA
+    # ------------------------------------------------------------
 
     player_game_log = player_game_log.merge(
         roster_all,
