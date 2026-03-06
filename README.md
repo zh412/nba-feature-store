@@ -50,19 +50,64 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Configure Google Cloud credentials:
+
+```
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service_account.json"
+```
+
 Run the pipeline:
 
 ```
 python main.py
 ```
 
-Check pipeline health:
+### Default Behavior (AUTO_YESTERDAY_MODE)
+
+By default the pipeline runs in **AUTO_YESTERDAY_MODE**.
+
+This means the pipeline automatically ingests **yesterday’s NBA games** each time it runs.
+
+Example:
+
+If today is **March 5**, the pipeline will ingest **March 4 games**.
+
+This mode is designed for **automated daily ingestion** during the NBA season.
+
+### Running a Manual Date Range (Backfill)
+
+If you want to ingest specific historical dates instead of yesterday's games, update the configuration in `config.py`.
+
+Example:
+
+```
+AUTO_YESTERDAY_MODE = False
+
+START_DATE = "2025-11-01"
+END_DATE   = "2025-11-03"
+```
+
+Then run:
+
+```
+python main.py
+```
+
+### Backfill Safety Guardrail
+
+The pipeline includes a safety limit to prevent excessive API calls.
+
+A maximum of **7 days can be processed per run**.
+
+If you need to backfill a longer period, run the pipeline multiple times with different date ranges.
+
+### Check Pipeline Health
+
+After ingestion you can verify the feature store using the monitoring dashboard:
 
 ```
 python monitoring/feature_store_command_center.py
 ```
-
----
 
 ## Architecture
 
