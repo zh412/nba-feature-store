@@ -4,6 +4,7 @@
 
 import pandas as pd
 import time
+from datetime import datetime
 
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -146,6 +147,24 @@ def run_pipeline(run_dates):
             daily_df["minutes_SECONDS"] = (
                 daily_df["minutes"].apply(minutes_to_seconds)
             )
+
+            # ------------------------------------------------------------
+            # PLAYER PARTICIPATION FLAGS
+            # ------------------------------------------------------------
+
+            daily_df["DNP_FLAG"] = daily_df["minutes_SECONDS"] == 0
+
+            daily_df["GAMES_PLAYED_FLAG"] = daily_df["minutes_SECONDS"] > 0
+
+            # ------------------------------------------------------------
+            # INGESTION METADATA
+            # ------------------------------------------------------------
+
+            batch_id = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+
+            daily_df["INGESTED_AT_UTC"] = datetime.utcnow()
+
+            daily_df["LOAD_BATCH_ID"] = batch_id
 
             # ------------------------------------------------------------
             # ROW KEY + GAME DATE
