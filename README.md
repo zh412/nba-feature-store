@@ -56,10 +56,26 @@ Configure Google Cloud credentials:
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service_account.json"
 ```
 
+Example:
+
+```
+export GOOGLE_APPLICATION_CREDENTIALS="/Users/username/service_account.json"
+```
+
+Configure the pipeline:
+
+Open `config.py` and update the following values:
+
+```
+BQ_PROJECT_ID = "your-project-id"
+DATASET_ID = "NBA_ANALYTICS"
+TABLE_NAME = "pr_see_daily_player_game_log"
+```
+
 Run the pipeline:
 
 ```
-python main.py
+python3 main.py
 ```
 
 ### Default Behavior (AUTO_YESTERDAY_MODE)
@@ -82,7 +98,6 @@ Example:
 
 ```
 AUTO_YESTERDAY_MODE = False
-
 START_DATE = "2025-11-01"
 END_DATE   = "2025-11-03"
 ```
@@ -90,7 +105,7 @@ END_DATE   = "2025-11-03"
 Then run:
 
 ```
-python main.py
+python3 main.py
 ```
 
 ### Backfill Safety Guardrail
