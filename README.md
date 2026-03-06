@@ -1,5 +1,19 @@
 # NBA Feature Store Pipeline
 
+## Project Status
+
+Production-ready NBA data pipeline that ingests player-level game statistics from the NBA Stats API into a partitioned BigQuery feature store.
+
+Current capabilities:
+
+• Automated daily ingestion  
+• Schema-locked feature store  
+• Monitoring and integrity audits  
+• Failure alerting and retry protection  
+• Historical backfill support  
+
+This repository represents **Phase 1: Data Infrastructure** for a larger sports analytics platform.
+
 ![NBA Feature Store Architecture](nba_feature_store_pipeline_architecture.png)
 
 ## Overview
