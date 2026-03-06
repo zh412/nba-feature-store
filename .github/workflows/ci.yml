@@ -28,13 +28,17 @@ jobs:
 
     - name: Install linting tools
       run: |
-        pip install flake8
+        pip install flake8 pytest
 
     - name: Run lint check
       run: |
         flake8 .
 
-    - name: Test imports
+    - name: Run unit tests
+      run: |
+        pytest
+
+    - name: Test critical imports
       run: |
         python -c "import pandas"
         python -c "import google.cloud.bigquery"
