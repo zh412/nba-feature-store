@@ -293,6 +293,27 @@ Runtime behavior is controlled through `config.py`, which supports both automati
 
 ---
 
+---
+
+## Pipeline Automation
+
+The pipeline is designed to run automatically once per day.
+
+A lightweight scheduler is configured locally using `cron` to execute the pipeline at **1:00 PM Eastern Time**, which ingests the previous day's NBA games.
+
+Example configuration:
+0 13 * * * cd /Users//nba-feature-store && /Users//nba-feature-store/.venv/bin/python main.py
+
+This ensures the feature store remains continuously updated during the NBA season without manual intervention.
+
+The pipeline also includes:
+
+• automatic retry logic for unstable API calls  
+• adaptive rate limiting to prevent NBA API throttling  
+• failure detection with alert notifications  
+
+These safeguards allow the system to operate as a reliable automated data pipeline.
+
 ## Monitoring the Pipeline
 
 Three monitoring utilities provide operational visibility into the feature store.
