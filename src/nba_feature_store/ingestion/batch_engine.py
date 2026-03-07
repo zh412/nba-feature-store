@@ -2,11 +2,11 @@
 # BATCH INGESTION ENGINE
 # ============================================================
 
-from utils.logging import log
-from utils.nba_session import reset_nba_session
-from utils.rate_governor import RateGovernor
+from nba_feature_store.utils.logging import log
+from nba_feature_store.utils.nba_session import reset_nba_session
+from nba_feature_store.utils.rate_governor import RateGovernor
 
-from ingestion.ingestion_engine import run_pipeline
+from nba_feature_store.ingestion.ingestion_engine import run_pipeline
 
 
 # ============================================================

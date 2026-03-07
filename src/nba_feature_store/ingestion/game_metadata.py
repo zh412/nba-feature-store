@@ -5,7 +5,7 @@
 import pandas as pd
 from nba_api.stats.endpoints import boxscoresummaryv3
 
-from utils.rate_governor import RateGovernor
+from nba_feature_store.utils.rate_governor import RateGovernor
 
 # Shared governor instance for this module
 _governor = RateGovernor()

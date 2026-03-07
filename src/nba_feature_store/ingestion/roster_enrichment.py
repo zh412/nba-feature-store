@@ -6,8 +6,8 @@ import pandas as pd
 
 from nba_api.stats.endpoints import commonteamroster
 
-from utils.retry import call_with_retry
-from utils.logging import log
+from nba_feature_store.utils.retry import call_with_retry
+from nba_feature_store.utils.logging import log
 
 
 # ------------------------------------------------------------

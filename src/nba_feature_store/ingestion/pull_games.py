@@ -12,7 +12,7 @@ from nba_api.stats.endpoints import (
     boxscoreplayertrackv3
 )
 
-from utils.retry import call_with_retry
+from nba_feature_store.utils.retry import call_with_retry
 
 
 # ============================================================

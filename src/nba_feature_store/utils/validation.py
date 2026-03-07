@@ -2,7 +2,7 @@
 # DATA VALIDATION UTILITIES
 # ============================================================
 
-from utils.logging import log
+from nba_feature_store.utils.logging import log
 
 
 def validate_daily_dataframe(df):

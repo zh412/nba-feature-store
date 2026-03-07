@@ -11,25 +11,25 @@ from google.cloud.exceptions import NotFound
 
 from nba_api.stats.endpoints import scoreboardv3
 
-from utils.logging import log
-from utils.retry import call_with_retry
-from utils.validation import validate_daily_dataframe
-from utils.dates import minutes_to_seconds
+from nba_feature_store.utils.logging import log
+from nba_feature_store.utils.retry import call_with_retry
+from nba_feature_store.utils.validation import validate_daily_dataframe
+from nba_feature_store.utils.dates import minutes_to_seconds
 
-from utils.nba_session import configure_nba_session
-from utils.rate_governor import RateGovernor
-from utils.schema_enforcer import enforce_schema
-from utils.column_cleaner import clean_tracking_columns
-from utils.post_load_check import verify_bigquery_load
-from utils.run_tracker import RunTracker
+from nba_feature_store.utils.nba_session import configure_nba_session
+from nba_feature_store.utils.rate_governor import RateGovernor
+from nba_feature_store.utils.schema_enforcer import enforce_schema
+from nba_feature_store.utils.column_cleaner import clean_tracking_columns
+from nba_feature_store.utils.post_load_check import verify_bigquery_load
+from nba_feature_store.utils.run_tracker import RunTracker
 
-from ingestion.pull_games import pull_full_player_table
-from ingestion.roster_enrichment import enrich_roster_metadata
-from ingestion.team_context import enrich_team_context
-from ingestion.game_metadata import enrich_game_metadata
+from nba_feature_store.ingestion.pull_games import pull_full_player_table
+from nba_feature_store.ingestion.roster_enrichment import enrich_roster_metadata
+from nba_feature_store.ingestion.team_context import enrich_team_context
+from nba_feature_store.ingestion.game_metadata import enrich_game_metadata
 
-from config import TABLE_ID
-from schema import SCHEMA_DEFINITION
+from nba_feature_store.config import TABLE_ID
+from nba_feature_store.schema import SCHEMA_DEFINITION
 
 
 # ============================================================

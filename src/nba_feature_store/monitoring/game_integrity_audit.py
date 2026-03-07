@@ -12,7 +12,7 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.cloud import bigquery
-from config import TABLE_ID
+from nba_feature_store.config import TABLE_ID
 
 
 # ============================================================

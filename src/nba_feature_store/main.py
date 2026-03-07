@@ -4,19 +4,18 @@
 
 import sys
 
-from config import (
+from nba_feature_store.config import (
     START_DATE,
     END_DATE,
     EXCLUDE_DATES,
     MAX_DAYS_PER_RUN
 )
 
-from utils.dates import generate_date_list
-from utils.logging import log
-from utils.email_alert import send_failure_email
+from nba_feature_store.utils.dates import generate_date_list
+from nba_feature_store.utils.logging import log
+from nba_feature_store.utils.email_alert import send_failure_email
 
-from ingestion.batch_engine import run_batches
-
+from nba_feature_store.ingestion.batch_engine import run_batches
 
 # ============================================================
 # PIPELINE ENTRYPOINT

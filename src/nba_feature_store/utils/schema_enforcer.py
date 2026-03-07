@@ -1,4 +1,4 @@
-from schema import SCHEMA_DEFINITION
+from nba_feature_store.schema import SCHEMA_DEFINITION
 
 
 def enforce_schema(df):
