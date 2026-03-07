@@ -1,4 +1,4 @@
-from utils.dates import minutes_to_seconds
+from nba_feature_store.utils.dates import minutes_to_seconds
 
 
 def test_minutes_to_seconds():
