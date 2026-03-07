@@ -1,4 +1,5 @@
 # NBA Feature Store Pipeline
+Production-style NBA data pipeline that builds a partitioned BigQuery feature store from NBA Stats API endpoints for analytics and modeling workflows.
 
 ![CI](https://github.com/zh412/nba-feature-store/actions/workflows/ci.yml/badge.svg)
 ![Lint](https://img.shields.io/badge/code%20style-flake8-blue)
