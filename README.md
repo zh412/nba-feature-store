@@ -4,6 +4,19 @@
 ![Lint](https://img.shields.io/badge/code%20style-flake8-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## What This Project Does
+
+This project builds a **production-style sports analytics data pipeline** that:
+
+• Collects NBA game data from the NBA Stats API  
+• Merges multiple endpoints into player-level feature sets  
+• Validates data integrity and schema consistency  
+• Loads the results into a **partitioned BigQuery feature store**
+
+⭐ Example: The pipeline generates **110+ player-level features per NBA game**.
+
+NBA Stats API → Ingestion Pipeline → Validation Layer → BigQuery Feature Store → Analytics / Modeling
+
 ## Project Status
 
 Production-ready NBA data pipeline that ingests player-level game statistics from the NBA Stats API into a partitioned BigQuery feature store.
