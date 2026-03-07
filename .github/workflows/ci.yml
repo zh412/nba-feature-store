@@ -36,9 +36,10 @@ jobs:
 
     - name: Run unit tests
       run: |
-        pytest
+        PYTHONPATH=src pytest
 
     - name: Test critical imports
       run: |
-        python -c "import pandas"
-        python -c "import google.cloud.bigquery"
+        PYTHONPATH=src python -c "import nba_feature_store"
+        PYTHONPATH=src python -c "import pandas"
+        PYTHONPATH=src python -c "import google.cloud.bigquery"
