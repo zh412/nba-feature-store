@@ -79,7 +79,8 @@ TABLE_NAME = "pr_see_daily_player_game_log"
 Run the pipeline:
 
 ```
-python3 main.py
+PYTHONPATH=src python -m nba_feature_store
+This project uses a `src/` package layout. The pipeline is executed as a Python module to mirror production-style package execution.
 ```
 
 ### Default Behavior (AUTO_YESTERDAY_MODE)
@@ -127,6 +128,18 @@ After ingestion you can verify the feature store using the monitoring dashboard:
 ```
 python monitoring/feature_store_command_center.py
 ```
+
+## Development
+
+Run tests:
+
+pytest
+
+Run linting:
+
+flake8 .
+
+The repository includes a GitHub Actions CI pipeline that automatically runs linting and tests on every commit to ensure code quality and stability.
 
 ## Architecture
 
@@ -341,41 +354,54 @@ These monitoring tools allow quick verification that the pipeline is functioning
 ```
 nba-feature-store
 │
-├── main.py
-├── config.py
-├── schema.py
+├── src
+│   └── nba_feature_store
+│       ├── main.py
+│       ├── config.py
+│       ├── schema.py
+│       │
+│       ├── ingestion
+│       │   ├── ingestion_engine.py
+│       │   ├── pull_games.py
+│       │   ├── batch_engine.py
+│       │   ├── roster_enrichment.py
+│       │   ├── team_context.py
+│       │   └── game_metadata.py
+│       │
+│       ├── utils
+│       │   ├── retry.py
+│       │   ├── validation.py
+│       │   ├── logging.py
+│       │   ├── dates.py
+│       │   ├── nba_session.py
+│       │   ├── rate_governor.py
+│       │   ├── schema_enforcer.py
+│       │   ├── column_cleaner.py
+│       │   ├── post_load_check.py
+│       │   └── run_tracker.py
+│       │
+│       └── monitoring
+│           ├── data_health_audit.py
+│           ├── game_integrity_audit.py
+│           └── feature_store_command_center.py
 │
-├── ingestion
-│   ├── ingestion_engine.py
-│   ├── pull_games.py
-│   ├── batch_engine.py
-│   ├── roster_enrichment.py
-│   ├── team_context.py
-│   └── game_metadata.py
+├── tests
+│   ├── test_dates.py
+│   └── test_retry.py
 │
-├── utils
-│   ├── retry.py
-│   ├── validation.py
-│   ├── logging.py
-│   ├── dates.py
-│   ├── nba_session.py
-│   ├── rate_governor.py
-│   ├── schema_enforcer.py
-│   ├── column_cleaner.py
-│   ├── post_load_check.py
-│   └── run_tracker.py
+├── docs
+│   ├── pipeline_run.png
+│   ├── data_health_audit.png
+│   ├── game_integrity_audit.png
+│   └── feature_store_command_center.png
 │
-├── monitoring
-│   ├── data_health_audit.py
-│   ├── game_integrity_audit.py
-│   └── feature_store_command_center.py
+├── .github/workflows
+│   └── ci.yml
 │
 ├── requirements.txt
+├── pytest.ini
 ├── README.md
-│
-└── notebook_prototype
-    ├── feature_store_pipeline.ipynb
-    └── Portfolio_Player_Stats_Generated_and_Logged_System.ipynb
+└── LICENSE
 ```
 
 ### Structure Overview
@@ -407,7 +433,7 @@ pip install -r requirements.txt
 Run the pipeline:
 
 ```
-python main.py
+PYTHONPATH=src python -m nba_feature_store
 ```
 
 Runtime behavior is controlled through `config.py`, which supports both automatic daily ingestion and manual historical backfills.
