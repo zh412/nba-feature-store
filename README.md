@@ -14,6 +14,7 @@ This project builds a **production-style sports analytics data pipeline** that:
 • Loads the results into a **partitioned BigQuery feature store**
 
 ⭐ Example: The pipeline generates **110+ player-level features per NBA game**.
+Each NBA game date is processed as an **atomic ingestion unit**, ensuring that partial or corrupted data never enters the feature store.
 
 NBA Stats API → Ingestion Pipeline → Validation Layer → BigQuery Feature Store → Analytics / Modeling
 
@@ -93,10 +94,9 @@ Run the pipeline:
 
 ```
 PYTHONPATH=src python -m nba_feature_store
-
 ```
-This project uses a `src/` package layout. The pipeline is executed as a Python module to mirror production-style package execution.
 
+This project uses a **`src/` package layout**, a common Python packaging pattern that isolates source code from repository root files and improves import reliability. The pipeline is executed as a Python module to mirror production-style package execution.
 
 ### Default Behavior (AUTO_YESTERDAY_MODE)
 
@@ -141,7 +141,7 @@ If you need to backfill a longer period, run the pipeline multiple times with di
 After ingestion you can verify the feature store using the monitoring dashboard:
 
 ```
-python monitoring/feature_store_command_center.py
+PYTHONPATH=src python -m nba_feature_store.monitoring.feature_store_command_center
 ```
 
 ## Development Commands
@@ -155,7 +155,23 @@ make test      # run unit tests
 make run       # execute pipeline
 
 ```
+
 The repository includes a GitHub Actions CI pipeline that automatically runs linting and tests on every commit to ensure code quality and stability.
+
+## Testing
+
+The repository includes a small unit test suite for core pipeline utilities.
+
+Run tests locally with:
+
+pytest
+
+These tests verify important pipeline components such as:
+
+• date parsing utilities  
+• retry logic for API calls  
+
+Tests automatically run in the GitHub Actions CI pipeline on every commit.
 
 ## Architecture
 
@@ -289,10 +305,14 @@ These endpoints are merged to generate a comprehensive player-level feature set 
 ## Technology Stack
 
 Python  
-NBA API (`nba_api`)  
-Google BigQuery  
+NBA Stats API (nba_api)  
+Google BigQuery 
+Google Cloud Platform 
 Pandas  
 Requests  
+GitHub Actions (CI/CD)  
+Pytest  
+Flake8  
 
 ---
 
@@ -465,7 +485,7 @@ The pipeline is designed to run automatically once per day.
 A lightweight scheduler is configured locally using `cron` to execute the pipeline at **1:00 PM Eastern Time**, which ingests the previous day's NBA games.
 
 Example configuration:
-0 13 * * * cd /Users//nba-feature-store && /Users//nba-feature-store/.venv/bin/python main.py
+0 13 * * * cd /Users/USERNAME/nba-feature-store && /Users/USERNAME/nba-feature-store/.venv/bin/python -m nba_feature_store
 
 This ensures the feature store remains continuously updated during the NBA season without manual intervention.
 
@@ -484,15 +504,15 @@ Three monitoring utilities provide operational visibility into the feature store
 Run individually:
 
 ```
-python monitoring/data_health_audit.py
+PYTHONPATH=src python -m nba_feature_store.monitoring.data_health_audit
 ```
 
 ```
-python monitoring/game_integrity_audit.py
+PYTHONPATH=src python -m nba_feature_store.monitoring.game_integrity_audit
 ```
 
 ```
-python monitoring/feature_store_command_center.py
+PYTHONPATH=src python -m nba_feature_store.monitoring.feature_store_command_center
 ```
 
 These tools confirm ingestion completeness, detect potential data integrity issues, and monitor overall pipeline health.
