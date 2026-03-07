@@ -138,10 +138,24 @@ If you need to backfill a longer period, run the pipeline multiple times with di
 
 ### Check Pipeline Health
 
-After ingestion you can verify the feature store using the monitoring dashboard:
+After ingestion you can verify the feature store using monitoring:
+
+Feature Store Command Center (high-level dashboard).
+
+Data Health Audit (detects missing ingestion dates and duplicate rows).
+
+Game Integrity Audit (validates player and team counts for each game).
 
 ```
 PYTHONPATH=src python -m nba_feature_store.monitoring.feature_store_command_center
+```
+
+```
+PYTHONPATH=src python -m nba_feature_store.monitoring.data_health_audit
+```
+
+```
+PYTHONPATH=src python -m nba_feature_store.monitoring.game_integrity_audit
 ```
 
 ## Development Commands
