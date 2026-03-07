@@ -93,8 +93,10 @@ Run the pipeline:
 
 ```
 PYTHONPATH=src python -m nba_feature_store
-This project uses a `src/` package layout. The pipeline is executed as a Python module to mirror production-style package execution.
+
 ```
+This project uses a `src/` package layout. The pipeline is executed as a Python module to mirror production-style package execution.
+
 
 ### Default Behavior (AUTO_YESTERDAY_MODE)
 
@@ -123,7 +125,7 @@ END_DATE   = "2025-11-03"
 Then run:
 
 ```
-python3 main.py
+PYTHONPATH=src python -m nba_feature_store
 ```
 
 ### Backfill Safety Guardrail
@@ -142,16 +144,17 @@ After ingestion you can verify the feature store using the monitoring dashboard:
 python monitoring/feature_store_command_center.py
 ```
 
-## Development
+## Development Commands
 
-Run tests:
+Common development tasks can be run using the Makefile.
 
-pytest
+```
+make install   # install dependencies
+make lint      # run flake8
+make test      # run unit tests
+make run       # execute pipeline
 
-Run linting:
-
-flake8 .
-
+```
 The repository includes a GitHub Actions CI pipeline that automatically runs linting and tests on every commit to ensure code quality and stability.
 
 ## Architecture
