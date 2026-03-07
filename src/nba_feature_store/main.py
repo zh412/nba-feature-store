@@ -21,6 +21,7 @@ from nba_feature_store.ingestion.batch_engine import run_batches
 # PIPELINE ENTRYPOINT
 # ============================================================
 
+
 def main():
 
     log("INFO", "Starting NBA Feature Store Pipeline")
