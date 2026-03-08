@@ -94,7 +94,13 @@ TABLE_NAME = "pr_see_daily_player_game_log"
 Run the pipeline:
 
 ```
-PYTHONPATH=src python -m nba_feature_store
+make run
+```
+
+Run the pipeline and execute all monitoring checks:
+
+```
+make pipeline-run
 ```
 
 This project uses a **`src/` package layout**, a common Python packaging pattern that isolates source code from repository root files and improves import reliability. The pipeline is executed as a Python module to mirror production-style package execution.
@@ -139,35 +145,35 @@ If you need to backfill a longer period, run the pipeline multiple times with di
 
 ### Check Pipeline Health
 
-After ingestion you can verify the feature store using monitoring:
+After ingestion you can verify the feature store using the built-in monitoring tools.
 
-Feature Store Command Center (high-level dashboard).
+Run individually:
 
-Data Health Audit (detects missing ingestion dates and duplicate rows).
+make monitor-command     # Feature Store Command Center dashboard  
+make monitor-health      # Data health audit (missing dates / duplicates)  
+make monitor-integrity   # Game integrity validation  
 
-Game Integrity Audit (validates player and team counts for each game).
+Run all monitoring checks together:
 
-```
-PYTHONPATH=src python -m nba_feature_store.monitoring.feature_store_command_center
-```
-
-```
-PYTHONPATH=src python -m nba_feature_store.monitoring.data_health_audit
-```
-
-```
-PYTHONPATH=src python -m nba_feature_store.monitoring.game_integrity_audit
-```
+make monitor-all
 
 ## Development Commands
 
 Common development tasks can be run using the Makefile.
 
 ```
-make install   # install dependencies
-make lint      # run flake8
-make test      # run unit tests
-make run       # execute pipeline
+make install          # install dependencies
+make lint             # run flake8
+make test             # run unit tests
+
+make run              # execute the ingestion pipeline
+
+make monitor-command  # feature store command center
+make monitor-health   # data health audit
+make monitor-integrity# game integrity audit
+make monitor-all      # run all monitoring checks
+
+make pipeline-run     # run pipeline followed by all monitoring checks
 
 ```
 
@@ -497,25 +503,58 @@ pip install -r requirements.txt
 Run the pipeline:
 
 ```
-PYTHONPATH=src python -m nba_feature_store
+make run
 ```
 
 Runtime behavior is controlled through `config.py`, which supports both automatic daily ingestion and manual historical backfills.
 
----
+Run the pipeline and all monitoring checks:
+
+```
+make pipeline-run
+```
+
 
 ---
 
 ## Pipeline Automation
 
-The pipeline is designed to run automatically once per day.
+The pipeline is designed to run automatically once per day during the NBA season.
 
-A lightweight scheduler is configured locally using `cron` to execute the pipeline at **1:00 PM Eastern Time**, which ingests the previous day's NBA games.
+A lightweight local scheduler is configured using cron to execute the pipeline at 1:00 PM Eastern Time, which ingests the previous day’s NBA games and runs the full monitoring suite.
 
 Example configuration:
-0 13 * * * cd /Users/USERNAME/nba-feature-store && /Users/USERNAME/nba-feature-store/.venv/bin/python -m nba_feature_store
+0 13 * * * cd /Users/zach/nba-feature-store && make pipeline-run >> logs/pipeline_$(date +\%Y-\%m-\%d).log 2>&1
 
-This ensures the feature store remains continuously updated during the NBA season without manual intervention.
+This command performs the following steps:
+	1.	Navigates to the project directory
+	2.	Executes the full pipeline workflow using the Makefile (make pipeline-run)
+	3.	Runs all monitoring checks after ingestion
+	4.	Writes pipeline output to a dated log file for debugging and observability
+
+Example log output location:
+logs/pipeline_2026-03-08.log
+
+Using dated log files prevents a single log from growing indefinitely and allows easier inspection of individual pipeline runs.
+
+This automation ensures the BigQuery feature store remains continuously updated without manual intervention.
+
+Cron Schedule Format
+* * * * *
+│ │ │ │ │
+│ │ │ │ └── day of week
+│ │ │ └──── month
+│ │ └────── day of month
+│ └──────── hour
+└────────── minute
+
+The schedule:
+0 13 * * *
+means the pipeline runs every day at 1:00PM
+
+Why 1:00 PM?
+
+NBA games often finish after midnight due to West Coast start times. Running the pipeline at 1 PM Eastern Time ensures that all previous day’s games have finalized and are available through the NBA Stats API before ingestion begins.
 
 The pipeline also includes:
 
