@@ -100,28 +100,6 @@ SCHEMA_DEFINITION = {
     "percentagePersonalFoulsDrawn_USAGE": "FLOAT64",
     "percentagePoints_USAGE": "FLOAT64",
 
-    # ---------------- TRACKING ----------------
-    "speed_TRACK": "FLOAT64",
-    "distance_TRACK": "FLOAT64",
-    "reboundChancesOffensive_TRACK": "INT64",
-    "reboundChancesDefensive_TRACK": "INT64",
-    "reboundChancesTotal_TRACK": "INT64",
-    "touches_TRACK": "INT64",
-    "secondaryAssists_TRACK": "INT64",
-    "freeThrowAssists_TRACK": "INT64",
-    "passes_TRACK": "INT64",
-    "assists_TRACK": "INT64",
-    "contestedFieldGoalsMade_TRACK": "INT64",
-    "contestedFieldGoalsAttempted_TRACK": "INT64",
-    "contestedFieldGoalPercentage_TRACK": "FLOAT64",
-    "uncontestedFieldGoalsMade_TRACK": "INT64",
-    "uncontestedFieldGoalsAttempted_TRACK": "INT64",
-    "uncontestedFieldGoalsPercentage_TRACK": "FLOAT64",
-    "fieldGoalPercentage_TRACK": "FLOAT64",
-    "defendedAtRimFieldGoalsMade_TRACK": "INT64",
-    "defendedAtRimFieldGoalsAttempted_TRACK": "INT64",
-    "defendedAtRimFieldGoalPercentage_TRACK": "FLOAT64",
-
     # ---------------- TEAM CONTEXT ----------------
     "effectiveFieldGoalPercentage_TEAM": "FLOAT64",
     "freeThrowAttemptRate_TEAM": "FLOAT64",

@@ -9,7 +9,6 @@ from nba_api.stats.endpoints import (
     boxscoretraditionalv3,
     boxscoreadvancedv3,
     boxscoreusagev3,
-    boxscoreplayertrackv3
 )
 
 from nba_feature_store.utils.retry import call_with_retry
@@ -108,21 +107,10 @@ def pull_full_player_table(game_id):
 
     usage_df = extract_players(usage_raw)
 
-    time.sleep(0.6)
-
-    tracking_raw = call_with_retry(
-        boxscoreplayertrackv3.BoxScorePlayerTrackV3,
-        game_id=game_id,
-        timeout=45
-    )
-
-    tracking_df = extract_players(tracking_raw)
-
     identity_cols = ["PLAYER_NAME", "POSITION", "TEAM_TRICODE"]
 
     advanced_df = advanced_df.drop(columns=identity_cols, errors="ignore")
     usage_df = usage_df.drop(columns=identity_cols, errors="ignore")
-    tracking_df = tracking_df.drop(columns=identity_cols, errors="ignore")
 
     def rename_stats(df, suffix):
 
@@ -136,7 +124,6 @@ def pull_full_player_table(game_id):
 
     advanced_df = rename_stats(advanced_df, "_ADV")
     usage_df = rename_stats(usage_df, "_USAGE")
-    tracking_df = rename_stats(tracking_df, "_TRACK")
 
     df = (
         traditional_df
@@ -148,12 +135,6 @@ def pull_full_player_table(game_id):
         )
         .merge(
             usage_df,
-            on=["PLAYER_ID", "TEAM_ID"],
-            how="left",
-            validate="1:1"
-        )
-        .merge(
-            tracking_df,
             on=["PLAYER_ID", "TEAM_ID"],
             how="left",
             validate="1:1"

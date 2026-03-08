@@ -14,7 +14,7 @@ This project builds a **production-style sports analytics data pipeline** that:
 • Validates data integrity and schema consistency  
 • Loads the results into a **partitioned BigQuery feature store**
 
-⭐ Example: The pipeline generates **110+ player-level features per NBA game**.
+⭐ Example: The pipeline generates **91 player-level features per NBA game**.
 Each NBA game date is processed as an **atomic ingestion unit**, ensuring that partial or corrupted data never enters the feature store.
 
 NBA Stats API → Ingestion Pipeline → Validation Layer → BigQuery Feature Store → Analytics / Modeling
@@ -198,10 +198,9 @@ A[NBA Stats API] --> B[Endpoint Pull Layer]
 B --> C1[Traditional Box Score]
 B --> C2[Advanced Box Score]
 B --> C3[Usage Stats]
-B --> C4[Player Tracking]
-B --> C5[Team Four Factors]
-B --> C6[Game Summary]
-B --> C7[Team Roster]
+B --> C4[Team Four Factors]
+B --> C5[Game Summary]
+B --> C6[Team Roster]
 
 C1 --> D[Merge + Feature Engineering]
 C2 --> D
@@ -236,7 +235,7 @@ Example pipeline execution:
 
 Example rows stored in the BigQuery feature store.
 
-The table contains over **110 player-level features** generated from multiple NBA Stats API endpoints.
+The table contains over **91 player-level features** generated from multiple NBA Stats API endpoints.
 
 ![Feature Store Example](docs/feature_store_example_1.png)
 
@@ -307,7 +306,6 @@ NBA Stats API endpoints used in this pipeline:
 - `boxscoretraditionalv3`
 - `boxscoreadvancedv3`
 - `boxscoreusagev3`
-- `boxscoreplayertrackv3`
 - `boxscorefourfactorsv3`
 - `boxscoresummaryv3`
 - `scoreboardv3`
@@ -427,7 +425,6 @@ nba-feature-store
 │       │   ├── nba_session.py
 │       │   ├── rate_governor.py
 │       │   ├── schema_enforcer.py
-│       │   ├── column_cleaner.py
 │       │   ├── post_load_check.py
 │       │   └── run_tracker.py
 │       │

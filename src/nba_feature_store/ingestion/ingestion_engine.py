@@ -19,7 +19,6 @@ from nba_feature_store.utils.dates import minutes_to_seconds
 from nba_feature_store.utils.nba_session import configure_nba_session
 from nba_feature_store.utils.rate_governor import RateGovernor
 from nba_feature_store.utils.schema_enforcer import enforce_schema
-from nba_feature_store.utils.column_cleaner import clean_tracking_columns
 from nba_feature_store.utils.post_load_check import verify_bigquery_load
 from nba_feature_store.utils.run_tracker import RunTracker
 
@@ -183,12 +182,6 @@ def run_pipeline(run_dates):
             # ------------------------------------------------------------
 
             validate_daily_dataframe(daily_df)
-
-            # ------------------------------------------------------------
-            # COLUMN CLEANING
-            # ------------------------------------------------------------
-
-            daily_df = clean_tracking_columns(daily_df)
 
             # ------------------------------------------------------------
             # SCHEMA ENFORCEMENT
