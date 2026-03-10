@@ -16,6 +16,8 @@ from nba_feature_store.utils.logging import log
 from nba_feature_store.utils.email_alert import send_failure_email
 
 from nba_feature_store.ingestion.batch_engine import run_batches
+from nba_feature_store.dimensions.build_player_dimension import build_player_dimension
+
 
 # ============================================================
 # PIPELINE ENTRYPOINT
@@ -25,6 +27,31 @@ from nba_feature_store.ingestion.batch_engine import run_batches
 def main():
 
     log("INFO", "Starting NBA Feature Store Pipeline")
+
+    # ------------------------------------------------------------
+    # ENSURE PLAYER DIMENSION TABLE EXISTS
+    # ------------------------------------------------------------
+
+    log("INFO", "Ensuring player dimension table exists")
+
+    try:
+
+        build_player_dimension()
+
+        log("INFO", "Player dimension table verified")
+
+    except Exception as e:
+
+        log("ERROR", f"Player dimension initialization failed: {e}")
+
+        try:
+            send_failure_email(
+                "NBA Feature Store pipeline failed during player dimension initialization."
+            )
+        except Exception as email_error:
+            log("ERROR", f"Failed to send failure alert email: {email_error}")
+
+        sys.exit(1)
 
     # ------------------------------------------------------------
     # GENERATE RUN DATES
