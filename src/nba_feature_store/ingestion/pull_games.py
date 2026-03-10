@@ -51,7 +51,6 @@ def extract_players(endpoint_obj):
             row = {
                 "PLAYER_ID": player.get("personId"),
                 "PLAYER_NAME": player_name,
-                "POSITION": player.get("positionFull") or player.get("position"),
                 "TEAM_ID": team_id,
                 "TEAM_TRICODE": team_tricode
             }
@@ -107,10 +106,18 @@ def pull_full_player_table(game_id):
 
     usage_df = extract_players(usage_raw)
 
-    identity_cols = ["PLAYER_NAME", "POSITION", "TEAM_TRICODE"]
+    # ------------------------------------------------------------
+    # REMOVE IDENTITY COLUMNS FROM SECONDARY TABLES
+    # ------------------------------------------------------------
+
+    identity_cols = ["PLAYER_NAME", "TEAM_TRICODE"]
 
     advanced_df = advanced_df.drop(columns=identity_cols, errors="ignore")
     usage_df = usage_df.drop(columns=identity_cols, errors="ignore")
+
+    # ------------------------------------------------------------
+    # RENAME STAT GROUPS
+    # ------------------------------------------------------------
 
     def rename_stats(df, suffix):
 
@@ -124,6 +131,10 @@ def pull_full_player_table(game_id):
 
     advanced_df = rename_stats(advanced_df, "_ADV")
     usage_df = rename_stats(usage_df, "_USAGE")
+
+    # ------------------------------------------------------------
+    # MERGE STAT TABLES
+    # ------------------------------------------------------------
 
     df = (
         traditional_df

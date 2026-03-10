@@ -10,14 +10,36 @@ from zoneinfo import ZoneInfo
 # ------------------------------------------------------------
 # BIGQUERY CONFIGURATION
 # ------------------------------------------------------------
+# Users of the repo only need to change these two values
+# to point the pipeline at their own BigQuery project.
 
-BQ_PROJECT_ID = "nba-structural-edge-engine"
+PROJECT_ID = "nba-structural-edge-engine"
+
+BQ_PROJECT_ID = PROJECT_ID
 
 DATASET_ID = "PR_SEE_NBA_ANALYTICS"
+
+
+# ------------------------------------------------------------
+# FEATURE STORE TABLE
+# ------------------------------------------------------------
 
 TABLE_NAME = "pr_see_daily_player_game_log"
 
 TABLE_ID = f"{BQ_PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
+
+
+# ------------------------------------------------------------
+# PLAYER DIMENSION TABLE
+# ------------------------------------------------------------
+# Centralized metadata table used by the pipeline
+# for POSITION / HEIGHT / WEIGHT / EXP.
+
+PLAYER_DIMENSION_TABLE_NAME = "pr_see_player_dimension"
+
+PLAYER_DIMENSION_TABLE = (
+    f"{BQ_PROJECT_ID}.{DATASET_ID}.{PLAYER_DIMENSION_TABLE_NAME}"
+)
 
 
 # ------------------------------------------------------------
@@ -26,7 +48,7 @@ TABLE_ID = f"{BQ_PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 # True  -> Automatically ingest yesterday's NBA games
 # False -> Use manual START_DATE / END_DATE
 
-AUTO_YESTERDAY_MODE = True
+AUTO_YESTERDAY_MODE = False
 
 
 # ------------------------------------------------------------
@@ -34,8 +56,8 @@ AUTO_YESTERDAY_MODE = True
 # ------------------------------------------------------------
 # ONLY USED IF AUTO_YESTERDAY_MODE = False
 
-START_DATE = "03/01/2026"
-END_DATE   = "03/01/2026"
+START_DATE = "11/16/2025"
+END_DATE = "11/17/2025"
 
 
 # ------------------------------------------------------------

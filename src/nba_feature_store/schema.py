@@ -26,7 +26,6 @@ SCHEMA_DEFINITION = {
     # ---------------- ROSTER ----------------
     "POSITION": "STRING",
     "HEIGHT": "STRING",
-    "WEIGHT": "FLOAT64",
     "EXP": "STRING",
 
     # ---------------- MINUTES ----------------

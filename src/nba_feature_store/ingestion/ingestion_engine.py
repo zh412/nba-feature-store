@@ -3,7 +3,6 @@
 # ============================================================
 
 import pandas as pd
-import time
 from datetime import datetime
 
 from google.cloud import bigquery
@@ -23,12 +22,35 @@ from nba_feature_store.utils.post_load_check import verify_bigquery_load
 from nba_feature_store.utils.run_tracker import RunTracker
 
 from nba_feature_store.ingestion.pull_games import pull_full_player_table
-from nba_feature_store.ingestion.roster_enrichment import enrich_roster_metadata
 from nba_feature_store.ingestion.team_context import enrich_team_context
 from nba_feature_store.ingestion.game_metadata import enrich_game_metadata
 
-from nba_feature_store.config import TABLE_ID
+from nba_feature_store.config import TABLE_ID, PLAYER_DIMENSION_TABLE
 from nba_feature_store.schema import SCHEMA_DEFINITION
+
+
+# ============================================================
+# LOAD PLAYER DIMENSION
+# ============================================================
+
+def load_player_dimension(client):
+
+    log("INFO", "Loading player dimension table...")
+
+    query = f"""
+    SELECT PLAYER_ID, POSITION, HEIGHT, EXP
+    FROM `{PLAYER_DIMENSION_TABLE}`
+    """
+
+    df = client.query(query).to_dataframe()
+
+    df["PLAYER_ID"] = pd.to_numeric(
+        df["PLAYER_ID"], errors="coerce"
+    ).astype("Int64")
+
+    log("INFO", f"Loaded {len(df)} player dimension rows")
+
+    return df
 
 
 # ============================================================
@@ -37,10 +59,6 @@ from nba_feature_store.schema import SCHEMA_DEFINITION
 
 def run_pipeline(run_dates):
 
-    # ------------------------------------------------------------
-    # SYSTEM INITIALIZATION
-    # ------------------------------------------------------------
-
     configure_nba_session()
 
     client = bigquery.Client()
@@ -48,6 +66,12 @@ def run_pipeline(run_dates):
     rate_governor = RateGovernor()
 
     run_tracker = RunTracker()
+
+    # ------------------------------------------------------------
+    # LOAD DIMENSION TABLE ONCE
+    # ------------------------------------------------------------
+
+    player_dimension = load_player_dimension(client)
 
     # ------------------------------------------------------------
     # MAIN DATE LOOP
@@ -60,10 +84,6 @@ def run_pipeline(run_dates):
         log("INFO", f"Starting processing for {run_date_str}")
 
         try:
-
-            # ------------------------------------------------------------
-            # SCOREBOARD REQUEST
-            # ------------------------------------------------------------
 
             rate_governor.register_request()
 
@@ -87,10 +107,6 @@ def run_pipeline(run_dates):
 
             games_df["GAME_ID"] = games_df["gameId"]
 
-            # ------------------------------------------------------------
-            # NOTEBOOK PARITY LOGGING
-            # ------------------------------------------------------------
-
             log("INFO", f"Processing {len(games_df)} games for {run_date_str}")
 
             all_game_logs = []
@@ -108,10 +124,8 @@ def run_pipeline(run_dates):
                 player_game_log["GAME_ID"] = str(game_id)
 
                 # --------------------------------------------------------
-                # FEATURE ENRICHMENT
+                # TEAM + GAME ENRICHMENT
                 # --------------------------------------------------------
-
-                player_game_log = enrich_roster_metadata(player_game_log)
 
                 player_game_log = enrich_team_context(
                     player_game_log,
@@ -132,6 +146,50 @@ def run_pipeline(run_dates):
             # ------------------------------------------------------------
 
             daily_df = pd.concat(all_game_logs, ignore_index=True)
+
+            # ------------------------------------------------------------
+            # MERGE PLAYER DIMENSION
+            # ------------------------------------------------------------
+
+            log("INFO", "Merging player dimension metadata")
+
+            daily_df["PLAYER_ID"] = pd.to_numeric(
+                daily_df["PLAYER_ID"], errors="coerce"
+            ).astype("Int64")
+
+            daily_df = daily_df.merge(
+                player_dimension,
+                on="PLAYER_ID",
+                how="left",
+                validate="m:1"
+            )
+
+            # ------------------------------------------------------------
+            # PLAYER DIMENSION VALIDATION (FAIL FAST)
+            # ------------------------------------------------------------
+
+            missing_dimension = daily_df[daily_df["POSITION"].isna()]
+
+            if len(missing_dimension) > 0:
+
+                missing_players = (
+                    missing_dimension["PLAYER_ID"]
+                    .dropna()
+                    .unique()
+                    .tolist()
+                )
+
+                log(
+                    "ERROR",
+                    f"{len(missing_players)} players missing from player_dimension table"
+                )
+
+                for pid in missing_players[:10]:
+                    log("ERROR", f"Missing PLAYER_ID in dimension: {pid}")
+
+                raise ValueError(
+                    "Player dimension table missing required PLAYER_ID values."
+                )
 
             # ------------------------------------------------------------
             # MINUTES NORMALIZATION
@@ -243,20 +301,12 @@ def run_pipeline(run_dates):
                 )
             ).result()
 
-            # ------------------------------------------------------------
-            # POST LOAD VERIFICATION
-            # ------------------------------------------------------------
-
             verify_bigquery_load(
                 client,
                 TABLE_ID,
                 run_date,
                 len(daily_df)
             )
-
-            # ------------------------------------------------------------
-            # NOTEBOOK PARITY COMPLETION LOG
-            # ------------------------------------------------------------
 
             log("INFO", f"Completed {run_date_str} — {len(daily_df)} rows inserted")
 
@@ -271,10 +321,6 @@ def run_pipeline(run_dates):
             run_tracker.record_failure(run_date_str)
 
             continue
-
-    # ------------------------------------------------------------
-    # FINAL RUN SUMMARY
-    # ------------------------------------------------------------
 
     run_tracker.print_summary()
 
