@@ -45,7 +45,7 @@ Each row represents:
 
 **one player in one NBA game**
 
-The table contains **90+ player-level features** derived from multiple NBA Stats API endpoints.
+The table contains **90 player-level features** derived from multiple NBA Stats API endpoints.
 
 ---
 
