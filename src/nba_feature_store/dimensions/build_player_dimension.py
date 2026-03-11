@@ -55,6 +55,7 @@ def call_with_retry(func, *args, max_retries=3, base_delay=1.0, **kwargs):
 
 TABLE_ID = PLAYER_DIMENSION_TABLE
 
+# NBA season used to build the player dimension table
 SEASON = "2025-26"
 
 REQUEST_SLEEP = 0.6
