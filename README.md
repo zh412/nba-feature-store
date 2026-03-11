@@ -60,28 +60,45 @@ flowchart TD
 
 A[NBA Stats API]
 
-A --> B1[Scoreboard Endpoint]
-A --> B2[Box Score Endpoints]
+%% ------------------------------
+%% GAME INGESTION PIPELINE
+%% ------------------------------
 
-B1 --> C1[Game Discovery]
-B2 --> C2[Player Game Stats]
+A --> B1[scoreboardv3<br>Game Discovery]
+A --> B2[Box Score Endpoints<br>traditional / advanced / usage / fourfactors]
 
-C1 --> D[Merge Game Stats]
-C2 --> D
+B1 --> C1[Batch Engine]
+C1 --> C2[API Session Manager]
 
-E[Player Metadata Endpoints] --> F1[commonallplayers]
-E --> F2[commonplayerinfo]
+C2 --> C3[Retry Layer]
+C3 --> C4[Rate Governor]
+
+C4 --> D1[Pull Game Data]
+B2 --> D1
+
+D1 --> D2[Feature Assembly<br>Merge Player Statistics]
+
+D2 --> E[Validation Layer]
+
+%% ------------------------------
+%% PLAYER DIMENSION PIPELINE
+%% ------------------------------
+
+A --> F1[commonallplayers]
+A --> F2[commonplayerinfo]
 
 F1 --> G[Player Dimension Builder]
 F2 --> G
 
-G --> H[Player Dimension Table<br>pr_see_player_dimension]
+G --> H[(Player Dimension Table<br>pr_see_player_dimension)]
 
-H --> D
+%% ------------------------------
+%% FEATURE STORE
+%% ------------------------------
 
-D --> I[Validation Layer]
+H --> D2
 
-I --> J[BigQuery Feature Store<br>pr_see_daily_player_game_log]
+E --> I[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
 ```
 
 The pipeline follows a modular data engineering architecture. NBA game data is collected from multiple NBA Stats API endpoints and merged into player-level feature sets. A dedicated dimension builder maintains a centralized player metadata table, which is joined during ingestion to enrich game-level statistics. The ingestion engine performs validation checks before loading the final dataset into a partitioned BigQuery feature store designed for analytical workloads and modeling pipelines.

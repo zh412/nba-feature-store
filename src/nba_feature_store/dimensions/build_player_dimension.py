@@ -239,27 +239,36 @@ def build_player_dimension():
 
     final_count = int(result["player_count"].iloc[0])
 
-    expected_count = len(player_ids)
+    log("INFO", f"Season players from API: {len(player_ids)}")
+    log("INFO", f"Players currently in dimension table: {final_count}")
 
-    log("INFO", f"Expected players: {expected_count}")
-    log("INFO", f"Players in dimension table: {final_count}")
+    dimension_players = set(
+        client.query(
+            f"SELECT PLAYER_ID FROM `{TABLE_ID}`"
+        ).to_dataframe()["PLAYER_ID"]
+    )
 
-    if final_count != expected_count:
+    missing = set(player_ids) - dimension_players
 
-        missing = set(player_ids) - set(
-            client.query(
-                f"SELECT PLAYER_ID FROM `{TABLE_ID}`"
-            ).to_dataframe()["PLAYER_ID"]
-        )
+    if missing:
 
-        log("WARNING", f"Missing players after load: {len(missing)}")
+        log("WARNING", f"Players missing from dimension table: {len(missing)}")
 
         for pid in sorted(missing):
             log("WARNING", f"Missing player: {pid}")
 
     else:
 
-        log("INFO", "Validation successful — all players present.")
+        log("INFO", "Validation successful — all season players present in dimension table.")
+
+    extra_players = dimension_players - set(player_ids)
+
+    if extra_players:
+
+        log(
+            "INFO",
+            f"Dimension table contains {len(extra_players)} additional players discovered during ingestion."
+        )
 
 
 # ============================================================
