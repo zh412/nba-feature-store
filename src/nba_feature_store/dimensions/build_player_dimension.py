@@ -40,8 +40,11 @@ def call_with_retry(func, *args, max_retries=3, base_delay=1.0, **kwargs):
 
             log(
                 "WARNING",
-                f"{func.__name__} failed (attempt {attempt+1}/{max_retries}). "
-                f"Retrying in {sleep_time:.2f}s..."
+                (
+                    f"{func.__name__} failed "
+                    f"(attempt {attempt+1}/{max_retries}). "
+                    f"Retrying in {sleep_time:.2f}s..."
+                ),
             )
 
             time.sleep(sleep_time)
@@ -97,7 +100,6 @@ def build_player_dimension():
 
         log("INFO", "Player dimension table created.")
 
-
     # ------------------------------------------------------------
     # EXISTING PLAYERS
     # ------------------------------------------------------------
@@ -113,7 +115,6 @@ def build_player_dimension():
 
     log("INFO", f"Existing players in dimension: {len(existing_players)}")
 
-
     # ------------------------------------------------------------
     # SEASON PLAYER LIST
     # ------------------------------------------------------------
@@ -124,7 +125,7 @@ def build_player_dimension():
         commonallplayers.CommonAllPlayers,
         is_only_current_season=1,
         season=SEASON,
-        timeout=45
+        timeout=45,
     )
 
     players_df = players_endpoint.get_data_frames()[0]
@@ -140,7 +141,6 @@ def build_player_dimension():
 
     log("INFO", f"Total season players: {total_players}")
 
-
     # ------------------------------------------------------------
     # MISSING PLAYERS
     # ------------------------------------------------------------
@@ -148,7 +148,6 @@ def build_player_dimension():
     missing_players = [pid for pid in player_ids if pid not in existing_players]
 
     log("INFO", f"Players missing metadata: {len(missing_players)}")
-
 
     # ------------------------------------------------------------
     # PULL PLAYER METADATA
@@ -161,7 +160,7 @@ def build_player_dimension():
 
         log(
             "INFO",
-            f"Processing player {index} / {len(missing_players)} (ID: {pid})"
+            f"Processing player {index} / {len(missing_players)} (ID: {pid})",
         )
 
         try:
@@ -169,18 +168,20 @@ def build_player_dimension():
             info_endpoint = call_with_retry(
                 commonplayerinfo.CommonPlayerInfo,
                 player_id=int(pid),
-                timeout=45
+                timeout=45,
             )
 
             df = info_endpoint.get_data_frames()[0]
 
-            rows.append({
-                "PLAYER_ID": int(pid),
-                "POSITION": df.iloc[0]["POSITION"],
-                "HEIGHT": df.iloc[0]["HEIGHT"],
-                "EXP": str(df.iloc[0]["SEASON_EXP"]),
-                "LAST_UPDATED_UTC": datetime.utcnow()
-            })
+            rows.append(
+                {
+                    "PLAYER_ID": int(pid),
+                    "POSITION": df.iloc[0]["POSITION"],
+                    "HEIGHT": df.iloc[0]["HEIGHT"],
+                    "EXP": str(df.iloc[0]["SEASON_EXP"]),
+                    "LAST_UPDATED_UTC": datetime.utcnow(),
+                }
+            )
 
             log("INFO", f"Collected metadata for player {pid}")
 
@@ -191,7 +192,6 @@ def build_player_dimension():
             log("ERROR", f"Metadata failed for player {pid}: {e}")
 
         time.sleep(REQUEST_SLEEP)
-
 
     # ------------------------------------------------------------
     # INSERT INTO BIGQUERY
@@ -212,7 +212,7 @@ def build_player_dimension():
             TABLE_ID,
             job_config=bigquery.LoadJobConfig(
                 write_disposition="WRITE_APPEND"
-            )
+            ),
         )
 
         job.result()
@@ -222,7 +222,6 @@ def build_player_dimension():
     else:
 
         log("INFO", "No new players to insert.")
-
 
     # ------------------------------------------------------------
     # FINAL VALIDATION
@@ -252,14 +251,24 @@ def build_player_dimension():
 
     if missing:
 
-        log("WARNING", f"Players missing from dimension table: {len(missing)}")
+        log(
+            "WARNING",
+            f"Players missing from dimension table: {len(missing)}",
+        )
 
         for pid in sorted(missing):
+
             log("WARNING", f"Missing player: {pid}")
 
     else:
 
-        log("INFO", "Validation successful — all season players present in dimension table.")
+        log(
+            "INFO",
+            (
+                "Validation successful — all season players "
+                "present in dimension table."
+            ),
+        )
 
     extra_players = dimension_players - set(player_ids)
 
@@ -267,7 +276,11 @@ def build_player_dimension():
 
         log(
             "INFO",
-            f"Dimension table contains {len(extra_players)} additional players discovered during ingestion."
+            (
+                "Dimension table contains "
+                f"{len(extra_players)} additional players "
+                "discovered during ingestion."
+            ),
         )
 
 
