@@ -162,6 +162,25 @@ The full production feature store contains **90 player-level features per game**
 
 ---
 
+## System Requirements
+
+The pipeline was developed and tested with the following environment:
+
+- Python 3.11+
+- Google Cloud Project with BigQuery enabled
+- BigQuery API enabled
+- Service account with BigQuery Admin permissions
+
+Required Python packages are listed in:
+
+requirements.txt
+
+All dependencies can be installed with:
+
+pip install -r requirements.txt
+
+---
+
 ## Quick Start
 
 ### Clone the Repository
@@ -783,6 +802,26 @@ Partition filtering is enforced to control BigQuery query costs and maintain war
 
 ---
 
+### Example Feature Store Schema
+
+| Column | Description |
+|------|-------------|
+| GAME_ID | Unique NBA game identifier |
+| PLAYER_ID | NBA player identifier |
+| TEAM_ID | Team identifier |
+| minutes_SECONDS | Minutes played converted to seconds |
+| POSITION | Player position from dimension table |
+| HEIGHT | Player height from dimension table |
+| EXP | Player experience (years in league) |
+| INGESTED_AT_UTC | Pipeline ingestion timestamp |
+| LOAD_BATCH_ID | Unique batch identifier |
+
+Full schema documentation is available in:
+
+docs/data_model.md
+
+---
+
 ## Data Sources
 
 The pipeline collects data from multiple NBA Stats API endpoints to construct a comprehensive player-level feature set for every NBA game.
@@ -1020,12 +1059,6 @@ The pipeline also includes several safeguards to ensure reliable automated opera
 • failure detection with optional email alert notifications  
 
 Together these mechanisms allow the system to operate as a reliable automated data pipeline that continuously updates the BigQuery feature store during the NBA season.
-
----
-
-For additional warehouse design details see:
-
-docs/data_model.md
 
 ---
 
