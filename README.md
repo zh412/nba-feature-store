@@ -181,6 +181,24 @@ pip install -r requirements.txt
 
 ---
 
+## Environment Variables
+
+The pipeline uses the following environment variables:
+
+GCP_PROJECT_ID
+Required. Your Google Cloud project ID.
+
+GOOGLE_APPLICATION_CREDENTIALS
+Path to your Google Cloud service account JSON key.
+
+PIPELINE_ALERT_EMAIL (optional)
+Email used for pipeline failure alerts.
+
+PIPELINE_ALERT_PASSWORD (optional)
+Gmail App Password used to send failure alerts.
+
+---
+
 ## Quick Start
 
 ### Clone the Repository
