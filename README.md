@@ -78,6 +78,8 @@ D --> I[Validation Layer]
 I --> J[BigQuery Feature Store<br>pr_see_daily_player_game_log]
 ```
 
+The pipeline follows a modular data engineering architecture. NBA game data is collected from multiple NBA Stats API endpoints and merged into player-level feature sets. A dedicated dimension builder maintains a centralized player metadata table, which is joined during ingestion to enrich game-level statistics. The ingestion engine performs validation checks before loading the final dataset into a partitioned BigQuery feature store designed for analytical workloads and modeling pipelines.
+
 This architecture separates **dimension construction** from the daily ingestion pipeline.
 
 Game data is collected from multiple NBA Stats API endpoints and merged into player-level feature sets.  
@@ -161,13 +163,19 @@ export GOOGLE_APPLICATION_CREDENTIALS="/Users/username/service_account.json"
 
 Configure the pipeline environment:
 
-Open `src/nba_feature_store/config.py` and update the following values:
+Open `src/nba_feature_store/config.py` and update the following value:
 
 ```python
-BQ_PROJECT_ID = "your-project-id"
+PROJECT_ID = "your-gcp-project-id"
+```
+
+Table names can also be customized if desired, but the defaults will work for most users.
+```python
 DATASET_ID = "NBA_ANALYTICS"
 TABLE_NAME = "pr_see_daily_player_game_log"
+PLAYER_DIMENSION_TABLE_NAME = "pr_see_player_dimension"
 ```
+The pipeline automatically creates both tables if they do not already exist.
 
 Run the ingestion pipeline:
 
@@ -615,7 +623,7 @@ The pipeline is designed to run automatically once per day during the NBA season
 A lightweight local scheduler is configured using cron to execute the pipeline at 1:00 PM Eastern Time, which ingests the previous day’s NBA games and runs the full monitoring suite.
 
 Example configuration:
-0 13 * * * cd /Users/zach/nba-feature-store && make pipeline-run >> logs/pipeline_$(date +\%Y-\%m-\%d).log 2>&1
+0 13 * * * cd /your/project/directory/nba-feature-store && make pipeline-run >> logs/pipeline_$(date +\%Y-\%m-\%d).log 2>&1
 
 This command performs the following steps:
 	1.	Navigates to the project directory

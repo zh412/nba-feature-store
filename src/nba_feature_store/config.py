@@ -10,15 +10,17 @@ from zoneinfo import ZoneInfo
 # ------------------------------------------------------------
 # BIGQUERY CONFIGURATION
 # ------------------------------------------------------------
-# Users of the repo only need to change these two values
-# to point the pipeline at their own BigQuery project.
+# Users only need to change:
+#   PROJECT_ID
+#   DATASET_ID
+#
+# BQ_PROJECT_ID is automatically derived from PROJECT_ID.
 
-PROJECT_ID = "nba-structural-edge-engine"
+PROJECT_ID = "your-gcp-project-id"
 
 BQ_PROJECT_ID = PROJECT_ID
 
-DATASET_ID = "PR_SEE_NBA_ANALYTICS"
-
+DATASET_ID = "NBA_ANALYTICS"  # default dataset name
 
 # ------------------------------------------------------------
 # FEATURE STORE TABLE
@@ -48,13 +50,14 @@ PLAYER_DIMENSION_TABLE = (
 # True  -> Automatically ingest yesterday's NBA games
 # False -> Use manual START_DATE / END_DATE
 
-AUTO_YESTERDAY_MODE = False
+AUTO_YESTERDAY_MODE = True
 
 
 # ------------------------------------------------------------
 # MANUAL DATE RANGE
 # ------------------------------------------------------------
 # ONLY USED IF AUTO_YESTERDAY_MODE = False
+# USE A MAXIMUM OF 7 DAYS HERE
 
 START_DATE = "11/16/2025"
 END_DATE = "11/17/2025"
