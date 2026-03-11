@@ -74,3 +74,5 @@ temp/
 data/*
 !data/sample/
 !data/sample/example_player_game_log.csv
+*.sqlite
+*.db
