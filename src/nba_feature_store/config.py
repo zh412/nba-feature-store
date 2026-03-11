@@ -5,7 +5,7 @@
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-
+import os
 
 # ------------------------------------------------------------
 # BIGQUERY CONFIGURATION
@@ -17,11 +17,11 @@ from zoneinfo import ZoneInfo
 # BQ_PROJECT_ID is automatically derived from PROJECT_ID.
 # DATASET needs to be created by user. Can use default name below.
 
-PROJECT_ID = "your-gcp-project-id"
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "your-gcp-project-id")
 
 BQ_PROJECT_ID = PROJECT_ID
 
-DATASET_ID = "NBA_ANALYTICS"  # default dataset name, okay to keep
+DATASET_ID = "PR_SEE_NBA_ANALYTICS"  # default dataset name, okay to keep
 
 # ------------------------------------------------------------
 # FEATURE STORE TABLE

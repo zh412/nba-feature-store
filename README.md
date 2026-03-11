@@ -224,12 +224,12 @@ This pipeline stores data in **Google BigQuery**, so you must first create a Goo
 
 In the BigQuery console:
 
-1. Select your project
-2. Click **Create Dataset**
+1. Select your project  
+2. Click **Create Dataset**  
 3. Create a dataset named:
 
 ```
-NBA_ANALYTICS
+PR_SEE_NBA_ANALYTICS
 ```
 
 You may choose a different name if desired, but the name must match the value configured in `config.py`.
@@ -250,7 +250,7 @@ BigQuery Admin
 
 ---
 
-### Configure Credentials
+### Configure Google Cloud Credentials
 
 Set the environment variable pointing to your service account key.
 
@@ -264,29 +264,69 @@ Example:
 export GOOGLE_APPLICATION_CREDENTIALS="/Users/username/service_account.json"
 ```
 
+This allows the pipeline to authenticate with Google Cloud when writing data to BigQuery.
+
 ---
 
 ## Configure the Pipeline
 
-Open:
+The pipeline reads your **Google Cloud Project ID** from an environment variable.
+
+Set the following variable before running the pipeline:
+
+```bash
+export GCP_PROJECT_ID="your-gcp-project-id"
+```
+
+Example:
+
+```bash
+export GCP_PROJECT_ID="my-gcp-project"
+```
+
+The pipeline will automatically use this value when constructing BigQuery table paths.
+
+For convenience, you may add this variable to your shell profile so it is automatically available in future terminal sessions.
+
+Example for macOS / Linux:
+
+```bash
+nano ~/.zshrc
+```
+
+Add the following line:
+
+```bash
+export GCP_PROJECT_ID="your-gcp-project-id"
+```
+
+Then reload your shell configuration:
+
+```bash
+source ~/.zshrc
+```
+
+---
+
+### Optional Configuration
+
+Advanced users may customize dataset and table names in:
 
 ```
 src/nba_feature_store/config.py
 ```
 
-Update the following value:
+Default values:
 
 ```python
-PROJECT_ID = "your-gcp-project-id"
-```
+DATASET_ID = "PR_SEE_NBA_ANALYTICS"
 
-Table names and dataset can also be customized if desired:
-
-```python
-DATASET_ID = "NBA_ANALYTICS"
 TABLE_NAME = "pr_see_daily_player_game_log"
+
 PLAYER_DIMENSION_TABLE_NAME = "pr_see_player_dimension"
 ```
+
+These defaults will work for most users.
 
 The pipeline **automatically creates both tables if they do not already exist**.
 
