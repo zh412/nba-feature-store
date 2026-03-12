@@ -112,6 +112,36 @@ def backfill_missing_players(client, missing_player_ids):
 
 
 # ============================================================
+# SCOREBOARD FETCH (RETRY SAFE)
+# ============================================================
+
+def fetch_scoreboard_games(game_date):
+
+    """
+    Fetch scoreboard games for a given date.
+
+    This wrapper ensures the entire API request + parsing
+    happens inside retry logic so malformed responses
+    trigger retries instead of failing the pipeline.
+    """
+
+    scoreboard = scoreboardv3.ScoreboardV3(
+        game_date=game_date,
+        timeout=30
+    )
+
+    data = scoreboard.get_dict()
+
+    if "scoreboard" not in data:
+        raise ValueError("Invalid scoreboard response structure")
+
+    if "games" not in data["scoreboard"]:
+        raise ValueError("Scoreboard payload missing games field")
+
+    return data["scoreboard"]["games"]
+
+
+# ============================================================
 # INGESTION ENGINE
 # ============================================================
 
@@ -137,7 +167,8 @@ def run_pipeline(run_dates):
 
     for run_date in run_dates:
 
-        run_date_str = run_date.strftime("%m/%d/%Y")
+        # ISO date format improves API reliability
+        run_date_str = run_date.strftime("%Y-%m-%d")
 
         log("INFO", f"Starting processing for {run_date_str}")
 
@@ -149,15 +180,17 @@ def run_pipeline(run_dates):
 
             try:
 
-                rate_governor.register_request()
+                # ------------------------------------------------------------
+                # SCOREBOARD FETCH
+                # ------------------------------------------------------------
 
-                scoreboard = call_with_retry(
-                    scoreboardv3.ScoreboardV3,
-                    game_date=run_date_str,
-                    timeout=30
+                games = call_with_retry(
+                    fetch_scoreboard_games,
+                    game_date=run_date_str
                 )
 
-                games = scoreboard.get_dict()["scoreboard"]["games"]
+                # cooldown after scoreboard request
+                rate_governor.sleep_endpoint()
 
                 games_df = pd.DataFrame(games)
 

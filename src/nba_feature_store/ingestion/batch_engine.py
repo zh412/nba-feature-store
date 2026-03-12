@@ -15,6 +15,9 @@ from nba_feature_store.ingestion.ingestion_engine import run_pipeline
 
 CHUNK_SIZE_DAYS = 7
 
+# If a batch has this many failures we trigger a longer cooldown
+FAILURE_THRESHOLD = 2
+
 
 # ============================================================
 # BATCH UTILITIES
@@ -60,6 +63,7 @@ def run_batches(run_dates):
 
     log("INFO", f"Total run dates: {len(run_dates)}")
     log("INFO", f"Batch size: {CHUNK_SIZE_DAYS} days")
+    log("INFO", f"Total batches: {len(batches)}")
 
     # ------------------------------------------------------------
     # BATCH LOOP
@@ -72,6 +76,8 @@ def run_batches(run_dates):
         log("INFO", "NBA session reset for new batch.")
         log("INFO", f"========== STARTING BATCH {batch_index} ==========")
 
+        log("INFO", f"Batch dates: {batch}")
+
         # ------------------------------------------------------------
         # RUN INGESTION PIPELINE
         # ------------------------------------------------------------
@@ -82,6 +88,22 @@ def run_batches(run_dates):
         failed_days.extend(batch_fail)
 
         log("INFO", f"Batch {batch_index} complete.")
+        log("INFO", f"Batch successes: {len(batch_success)}")
+        log("INFO", f"Batch failures: {len(batch_fail)}")
+
+        # ------------------------------------------------------------
+        # FAILURE HANDLING
+        # ------------------------------------------------------------
+
+        if len(batch_fail) >= FAILURE_THRESHOLD:
+
+            log(
+                "WARNING",
+                f"High failure count detected in batch {batch_index}. "
+                "Applying extended cooldown."
+            )
+
+            rate_governor.apply_cooldown_if_needed()
 
         # ------------------------------------------------------------
         # BATCH COOLDOWN
