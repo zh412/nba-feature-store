@@ -46,8 +46,10 @@ def enrich_game_metadata(player_game_log, game_id):
     # ------------------------------------------------------------
     # REFEREE EXTRACTION
     # ------------------------------------------------------------
+    # Referees are returned directly from the NBA API
+    # inside summary_data["officials"]
 
-    officials = summary_dict.get("officials", [])
+    officials = summary_data.get("officials", [])
 
     ref1_id = None
     ref2_id = None
