@@ -22,6 +22,12 @@ SCHEMA_DEFINITION = {
     "ARENA_CITY": "STRING",
     "ARENA_STATE": "STRING",
     "ARENA_COUNTRY": "STRING",
+    "REFEREE_1_ID": "INT64",
+    "REFEREE_2_ID": "INT64",
+    "REFEREE_3_ID": "INT64",
+    "REFEREE_1_NAME": "STRING",
+    "REFEREE_2_NAME": "STRING",
+    "REFEREE_3_NAME": "STRING",
 
     # ---------------- ROSTER ----------------
     "POSITION": "STRING",

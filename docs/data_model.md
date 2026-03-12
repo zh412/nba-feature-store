@@ -45,7 +45,7 @@ Each row represents:
 
 **one player in one NBA game**
 
-The table contains **90 player-level features** derived from multiple NBA Stats API endpoints.
+The table contains **96 player-level features** derived from multiple NBA Stats API endpoints.
 
 ---
 
@@ -73,6 +73,12 @@ The feature store columns can be grouped into several logical categories.
 - ARENA_STATE
 - ARENA_COUNTRY
 - ATTENDANCE
+- REFEREE_1_ID
+- REFEREE_2_ID
+- REFEREE_3_ID
+- REFEREE_1_NAME
+- REFEREE_2_NAME
+- REFEREE_3_NAME
 
 ---
 
