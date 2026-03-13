@@ -343,9 +343,14 @@ def run_pipeline(run_dates):
                 )
 
                 daily_df["PLAYER_TEAM_WIN_FLAG"] = (
-                    (daily_df["HOME_FLAG"] & daily_df["HOME_TEAM_WIN_FLAG"])
-                    |
-                    (~daily_df["HOME_FLAG"] & ~daily_df["HOME_TEAM_WIN_FLAG"])
+                    (
+                        daily_df["HOME_FLAG"]
+                        & daily_df["HOME_TEAM_WIN_FLAG"]
+                    )
+                    | (
+                        ~daily_df["HOME_FLAG"]
+                        & ~daily_df["HOME_TEAM_WIN_FLAG"]
+                    )
                 )
 
                 daily_df = daily_df.drop(
