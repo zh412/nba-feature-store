@@ -19,11 +19,18 @@ def enrich_game_metadata(player_game_log, game_id):
 
     GAME_STATUS
     GAME_TIME_UTC
-    ATTENDANCE
-    ARENA_NAME
-    ARENA_CITY
-    ARENA_STATE
-    ARENA_COUNTRY
+
+    HOME_TEAM_ID
+    HOME_TEAM_TRICODE
+    AWAY_TEAM_ID
+    AWAY_TEAM_TRICODE
+    HOME_FLAG
+
+    HOME_TEAM_POINTS
+    AWAY_TEAM_POINTS
+    POINT_MARGIN
+    GAME_TOTAL_POINTS
+
     REFEREE_1_ID
     REFEREE_2_ID
     REFEREE_3_ID
@@ -44,10 +51,25 @@ def enrich_game_metadata(player_game_log, game_id):
     summary_data = summary_dict["boxScoreSummary"]
 
     # ------------------------------------------------------------
+    # TEAM INFORMATION
+    # ------------------------------------------------------------
+
+    home_team_id = summary_data["homeTeam"]["teamId"]
+    home_team_tricode = summary_data["homeTeam"]["teamTricode"]
+
+    away_team_id = summary_data["awayTeam"]["teamId"]
+    away_team_tricode = summary_data["awayTeam"]["teamTricode"]
+
+    # ------------------------------------------------------------
+    # SCORE INFORMATION
+    # ------------------------------------------------------------
+
+    home_team_points = summary_data["homeTeam"]["score"]
+    away_team_points = summary_data["awayTeam"]["score"]
+
+    # ------------------------------------------------------------
     # REFEREE EXTRACTION
     # ------------------------------------------------------------
-    # Referees are returned directly from the NBA API
-    # inside summary_data["officials"]
 
     officials = summary_data.get("officials", [])
 
@@ -80,12 +102,15 @@ def enrich_game_metadata(player_game_log, game_id):
 
         "GAME_STATUS": summary_data["gameStatusText"],
         "GAME_TIME_UTC": summary_data["gameTimeUTC"],
-        "ATTENDANCE": summary_data.get("attendance"),
 
-        "ARENA_NAME": summary_data["arena"]["arenaName"],
-        "ARENA_CITY": summary_data["arena"]["arenaCity"],
-        "ARENA_STATE": summary_data["arena"]["arenaState"],
-        "ARENA_COUNTRY": summary_data["arena"]["arenaCountry"],
+        "HOME_TEAM_ID": home_team_id,
+        "HOME_TEAM_TRICODE": home_team_tricode,
+
+        "AWAY_TEAM_ID": away_team_id,
+        "AWAY_TEAM_TRICODE": away_team_tricode,
+
+        "HOME_TEAM_POINTS": home_team_points,
+        "AWAY_TEAM_POINTS": away_team_points,
 
         "REFEREE_1_ID": ref1_id,
         "REFEREE_2_ID": ref2_id,
@@ -107,6 +132,37 @@ def enrich_game_metadata(player_game_log, game_id):
         on="GAME_ID",
         how="left",
         validate="m:1"
+    )
+
+    # ------------------------------------------------------------
+    # DETERMINE HOME FLAG
+    # ------------------------------------------------------------
+
+    player_game_log["HOME_FLAG"] = (
+        player_game_log["PLAYER_TEAM_ID"] ==
+        player_game_log["HOME_TEAM_ID"]
+    )
+
+    # ------------------------------------------------------------
+    # SCORE DERIVED FIELDS
+    # ------------------------------------------------------------
+
+    player_game_log["POINT_MARGIN"] = (
+        player_game_log["HOME_TEAM_POINTS"]
+        - player_game_log["AWAY_TEAM_POINTS"]
+    )
+
+    player_game_log.loc[
+        player_game_log["HOME_FLAG"] == False,
+        "POINT_MARGIN"
+    ] = -player_game_log.loc[
+        player_game_log["HOME_FLAG"] == False,
+        "POINT_MARGIN"
+    ]
+
+    player_game_log["GAME_TOTAL_POINTS"] = (
+        player_game_log["HOME_TEAM_POINTS"]
+        + player_game_log["AWAY_TEAM_POINTS"]
     )
 
     _governor.sleep_endpoint()

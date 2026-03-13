@@ -39,11 +39,17 @@ def enrich_team_context(player_game_log, game_id):
 
     rows = []
 
+    # ------------------------------------------------------------
+    # EXTRACT TEAM FOUR FACTORS
+    # ------------------------------------------------------------
+
     for side in ["homeTeam", "awayTeam"]:
 
         team = four_data[side]
 
-        row = {"TEAM_ID": team.get("teamId")}
+        row = {
+            "PLAYER_TEAM_ID": team.get("teamId")
+        }
 
         row.update(team.get("statistics", {}))
 
@@ -51,8 +57,12 @@ def enrich_team_context(player_game_log, game_id):
 
     team_four_df = pd.DataFrame(rows)
 
-    team_four_df["TEAM_ID"] = pd.to_numeric(
-        team_four_df["TEAM_ID"], errors="coerce"
+    # ------------------------------------------------------------
+    # TYPE NORMALIZATION
+    # ------------------------------------------------------------
+
+    team_four_df["PLAYER_TEAM_ID"] = pd.to_numeric(
+        team_four_df["PLAYER_TEAM_ID"], errors="coerce"
     ).astype("Int64")
 
     team_four_df["GAME_ID"] = str(game_id)
@@ -62,18 +72,30 @@ def enrich_team_context(player_game_log, game_id):
         errors="ignore"
     )
 
-    player_game_log["TEAM_ID"] = pd.to_numeric(
-        player_game_log["TEAM_ID"], errors="coerce"
+    # ------------------------------------------------------------
+    # PREP PLAYER DATAFRAME
+    # ------------------------------------------------------------
+
+    player_game_log["PLAYER_TEAM_ID"] = pd.to_numeric(
+        player_game_log["PLAYER_TEAM_ID"], errors="coerce"
     ).astype("Int64")
 
     player_game_log["GAME_ID"] = player_game_log["GAME_ID"].astype(str)
 
+    # ------------------------------------------------------------
+    # MERGE FOUR FACTORS
+    # ------------------------------------------------------------
+
     player_game_log = player_game_log.merge(
         team_four_df,
-        on=["TEAM_ID", "GAME_ID"],
+        on=["PLAYER_TEAM_ID", "GAME_ID"],
         how="left",
         validate="m:1"
     )
+
+    # ------------------------------------------------------------
+    # RENAME COLUMNS FOR FEATURE STORE
+    # ------------------------------------------------------------
 
     team_rename_map = {
         "effectiveFieldGoalPercentage": "effectiveFieldGoalPercentage_TEAM",

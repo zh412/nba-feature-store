@@ -23,6 +23,7 @@ BQ_PROJECT_ID = PROJECT_ID
 
 DATASET_ID = "PR_SEE_NBA_ANALYTICS"  # default dataset name, okay to keep
 
+
 # ------------------------------------------------------------
 # FEATURE STORE TABLE
 # ------------------------------------------------------------
@@ -36,12 +37,26 @@ TABLE_ID = f"{BQ_PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 # PLAYER DIMENSION TABLE
 # ------------------------------------------------------------
 # Centralized metadata table used by the pipeline
-# for POSITION / HEIGHT / WEIGHT / EXP.
+# for POSITION / HEIGHT / EXP.
 
 PLAYER_DIMENSION_TABLE_NAME = "pr_see_player_dimension"
 
 PLAYER_DIMENSION_TABLE = (
     f"{BQ_PROJECT_ID}.{DATASET_ID}.{PLAYER_DIMENSION_TABLE_NAME}"
+)
+
+
+# ------------------------------------------------------------
+# TEAM ARENA DIMENSION TABLE
+# ------------------------------------------------------------
+# Maps each NBA team to its home arena metadata.
+# Used to populate ARENA_NAME / ARENA_CITY / ARENA_STATE
+# in the feature store via HOME_TEAM_ID.
+
+TEAM_ARENA_DIMENSION_TABLE_NAME = "pr_see_team_arena_dimension"
+
+TEAM_ARENA_DIMENSION_TABLE = (
+    f"{BQ_PROJECT_ID}.{DATASET_ID}.{TEAM_ARENA_DIMENSION_TABLE_NAME}"
 )
 
 

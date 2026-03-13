@@ -25,8 +25,26 @@ from nba_feature_store.ingestion.pull_games import pull_full_player_table
 from nba_feature_store.ingestion.team_context import enrich_team_context
 from nba_feature_store.ingestion.game_metadata import enrich_game_metadata
 
-from nba_feature_store.config import TABLE_ID, PLAYER_DIMENSION_TABLE
+from nba_feature_store.dimensions.build_team_arena_dimension import (
+    build_team_arena_dimension
+)
+
+from nba_feature_store.config import (
+    TABLE_ID,
+    PLAYER_DIMENSION_TABLE
+)
+
 from nba_feature_store.schema import SCHEMA_DEFINITION
+
+
+# ============================================================
+# TEAM ARENA DIMENSION TABLE
+# ============================================================
+
+TEAM_ARENA_DIMENSION_TABLE = TABLE_ID.replace(
+    "pr_see_daily_player_game_log",
+    "pr_see_team_arena_dimension"
+)
 
 
 # ============================================================
@@ -49,6 +67,45 @@ def load_player_dimension(client):
     ).astype("Int64")
 
     log("INFO", f"Loaded {len(df)} player dimension rows")
+
+    return df
+
+
+# ============================================================
+# LOAD TEAM ARENA DIMENSION
+# ============================================================
+
+def load_team_arena_dimension(client):
+
+    log("INFO", "Loading team arena dimension table...")
+
+    query = f"""
+    SELECT
+        TEAM_ID,
+        TEAM_TRICODE,
+        ARENA_NAME,
+        ARENA_CITY,
+        ARENA_STATE
+    FROM `{TEAM_ARENA_DIMENSION_TABLE}`
+    """
+
+    try:
+
+        df = client.query(query).to_dataframe()
+
+    except NotFound:
+
+        log("WARNING", "Team arena dimension table not found. Building...")
+
+        build_team_arena_dimension()
+
+        df = client.query(query).to_dataframe()
+
+    df["TEAM_ID"] = pd.to_numeric(
+        df["TEAM_ID"], errors="coerce"
+    ).astype("Int64")
+
+    log("INFO", f"Loaded {len(df)} team arena rows")
 
     return df
 
@@ -117,14 +174,6 @@ def backfill_missing_players(client, missing_player_ids):
 
 def fetch_scoreboard_games(game_date):
 
-    """
-    Fetch scoreboard games for a given date.
-
-    This wrapper ensures the entire API request + parsing
-    happens inside retry logic so malformed responses
-    trigger retries instead of failing the pipeline.
-    """
-
     scoreboard = scoreboardv3.ScoreboardV3(
         game_date=game_date,
         timeout=30
@@ -156,10 +205,12 @@ def run_pipeline(run_dates):
     run_tracker = RunTracker()
 
     # ------------------------------------------------------------
-    # LOAD DIMENSION TABLE
+    # LOAD DIMENSION TABLES
     # ------------------------------------------------------------
 
     player_dimension = load_player_dimension(client)
+
+    team_arena_dimension = load_team_arena_dimension(client)
 
     # ------------------------------------------------------------
     # MAIN DATE LOOP
@@ -167,7 +218,6 @@ def run_pipeline(run_dates):
 
     for run_date in run_dates:
 
-        # ISO date format improves API reliability
         run_date_str = run_date.strftime("%Y-%m-%d")
 
         log("INFO", f"Starting processing for {run_date_str}")
@@ -180,16 +230,11 @@ def run_pipeline(run_dates):
 
             try:
 
-                # ------------------------------------------------------------
-                # SCOREBOARD FETCH
-                # ------------------------------------------------------------
-
                 games = call_with_retry(
                     fetch_scoreboard_games,
                     game_date=run_date_str
                 )
 
-                # cooldown after scoreboard request
                 rate_governor.sleep_endpoint()
 
                 games_df = pd.DataFrame(games)
@@ -218,11 +263,18 @@ def run_pipeline(run_dates):
 
                     player_game_log = pull_full_player_table(game_id)
 
-                    player_game_log["GAME_ID"] = str(game_id)
+                    # --------------------------------------------------------
+                    # NORMALIZE TEAM COLUMN NAMES
+                    # --------------------------------------------------------
 
-                    # --------------------------------------------------------
-                    # TEAM + GAME ENRICHMENT
-                    # --------------------------------------------------------
+                    player_game_log = player_game_log.rename(
+                        columns={
+                            "TEAM_ID": "PLAYER_TEAM_ID",
+                            "TEAM_TRICODE": "PLAYER_TEAM_TRICODE"
+                        }
+                    )
+
+                    player_game_log["GAME_ID"] = str(game_id)
 
                     player_game_log = enrich_team_context(
                         player_game_log,
@@ -245,6 +297,64 @@ def run_pipeline(run_dates):
                 daily_df = pd.concat(all_game_logs, ignore_index=True)
 
                 # ------------------------------------------------------------
+                # COMPUTE GAME WINNER FLAGS
+                # ------------------------------------------------------------
+
+                log("INFO", "Computing win/loss flags")
+
+                team_points = (
+                    daily_df.groupby(["GAME_ID", "PLAYER_TEAM_ID"])["points"]
+                    .sum()
+                    .reset_index()
+                    .rename(columns={"points": "TEAM_POINTS"})
+                )
+
+                daily_df = daily_df.merge(
+                    team_points,
+                    on=["GAME_ID", "PLAYER_TEAM_ID"],
+                    how="left"
+                )
+
+                home_scores = (
+                    daily_df[daily_df["HOME_FLAG"] == True]
+                    .groupby("GAME_ID")["TEAM_POINTS"]
+                    .first()
+                    .rename("HOME_POINTS")
+                )
+
+                away_scores = (
+                    daily_df[daily_df["HOME_FLAG"] == False]
+                    .groupby("GAME_ID")["TEAM_POINTS"]
+                    .first()
+                    .rename("AWAY_POINTS")
+                )
+
+                score_df = pd.concat(
+                    [home_scores, away_scores],
+                    axis=1
+                ).reset_index()
+
+                daily_df = daily_df.merge(
+                    score_df,
+                    on="GAME_ID",
+                    how="left"
+                )
+
+                daily_df["HOME_TEAM_WIN_FLAG"] = (
+                    daily_df["HOME_POINTS"] > daily_df["AWAY_POINTS"]
+                )
+
+                daily_df["PLAYER_TEAM_WIN_FLAG"] = (
+                    (daily_df["HOME_FLAG"] & daily_df["HOME_TEAM_WIN_FLAG"]) |
+                    (~daily_df["HOME_FLAG"] & ~daily_df["HOME_TEAM_WIN_FLAG"])
+                )
+
+                daily_df = daily_df.drop(
+                    columns=["TEAM_POINTS", "HOME_POINTS", "AWAY_POINTS"],
+                    errors="ignore"
+                )
+
+                # ------------------------------------------------------------
                 # MERGE PLAYER DIMENSION
                 # ------------------------------------------------------------
 
@@ -259,6 +369,29 @@ def run_pipeline(run_dates):
                     on="PLAYER_ID",
                     how="left",
                     validate="m:1"
+                )
+
+                # ------------------------------------------------------------
+                # MERGE ARENA DIMENSION
+                # ------------------------------------------------------------
+
+                log("INFO", "Merging team arena dimension metadata")
+
+                daily_df["HOME_TEAM_ID"] = pd.to_numeric(
+                    daily_df["HOME_TEAM_ID"], errors="coerce"
+                ).astype("Int64")
+
+                daily_df = daily_df.merge(
+                    team_arena_dimension,
+                    left_on="HOME_TEAM_ID",
+                    right_on="TEAM_ID",
+                    how="left",
+                    validate="m:1"
+                )
+
+                daily_df = daily_df.drop(
+                    columns=["TEAM_ID", "TEAM_TRICODE"],
+                    errors="ignore"
                 )
 
                 # ------------------------------------------------------------
@@ -310,7 +443,6 @@ def run_pipeline(run_dates):
                 # ------------------------------------------------------------
 
                 daily_df["DNP_FLAG"] = daily_df["minutes_SECONDS"] == 0
-
                 daily_df["GAMES_PLAYED_FLAG"] = daily_df["minutes_SECONDS"] > 0
 
                 # ------------------------------------------------------------
@@ -320,7 +452,6 @@ def run_pipeline(run_dates):
                 batch_id = datetime.utcnow().strftime("%Y%m%d%H%M%S")
 
                 daily_df["INGESTED_AT_UTC"] = datetime.utcnow()
-
                 daily_df["LOAD_BATCH_ID"] = batch_id
 
                 # ------------------------------------------------------------
@@ -360,7 +491,6 @@ def run_pipeline(run_dates):
                 # ------------------------------------------------------------
 
                 try:
-
                     client.get_table(TABLE_ID)
 
                 except NotFound:

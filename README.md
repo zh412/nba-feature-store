@@ -16,7 +16,7 @@ This project builds a **production-style sports analytics data pipeline** that:
 • Validates data integrity and schema consistency  
 • Loads the results into a **partitioned BigQuery feature store**
 
-The pipeline generates **96 player-level features per NBA game**.
+The pipeline generates *105 player-level features per NBA game**.
 Each NBA game date is processed as an **atomic ingestion unit**, ensuring that partial or corrupted data never enters the feature store.
 
 NBA Stats API → Dimension Builder + Ingestion Engine → Validation Layer → BigQuery Feature Store
@@ -60,12 +60,13 @@ flowchart TD
 
 A[NBA Stats API]
 
-%% ------------------------------
+%% =========================================================
 %% GAME INGESTION PIPELINE
-%% ------------------------------
+%% =========================================================
 
 A --> B1[scoreboardv3<br>Game Discovery]
 A --> B2[Box Score Endpoints<br>traditional / advanced / usage / fourfactors]
+A --> B3[boxscoresummaryv3<br>Game Metadata]
 
 B1 --> C1[Batch Engine]
 C1 --> C2[API Session Manager]
@@ -75,28 +76,36 @@ C3 --> C4[Rate Governor]
 
 C4 --> D1[Pull Game Data]
 B2 --> D1
+B3 --> D1
 
-D1 --> D2[Feature Assembly<br>Merge Player Statistics]
+D1 --> D2[Feature Assembly<br>Merge Player Statistics + Game Context]
 
-D2 --> E[Validation Layer]
-
-%% ------------------------------
-%% PLAYER DIMENSION PIPELINE
-%% ------------------------------
+%% =========================================================
+%% DIMENSION PIPELINES
+%% =========================================================
 
 A --> F1[commonallplayers]
 A --> F2[commonplayerinfo]
 
-F1 --> G[Player Dimension Builder]
-F2 --> G
+F1 --> G1[Player Dimension Builder]
+F2 --> G1
 
-G --> H[(Player Dimension Table<br>pr_see_player_dimension)]
+G1 --> H1[(Player Dimension Table<br>pr_see_player_dimension)]
 
-%% ------------------------------
+A --> F3[Static Team Metadata]
+
+F3 --> G2[Team Arena Dimension Builder]
+
+G2 --> H2[(Team Arena Dimension Table<br>pr_see_team_arena_dimension)]
+
+%% =========================================================
 %% FEATURE STORE
-%% ------------------------------
+%% =========================================================
 
-H --> D2
+H1 --> D2
+H2 --> D2
+
+D2 --> E[Validation Layer]
 
 E --> I[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
 ```
@@ -124,12 +133,32 @@ A typical pipeline run follows the sequence below:
    A persistent player dimension table is maintained using metadata from `commonallplayers` and `commonplayerinfo`.  
    During ingestion this dimension table is joined to player game logs to enrich each record with player attributes.
 
-4. Feature Assembly  
-   Endpoint data is merged into a unified player-level feature set containing **92 statistics and contextual metrics per game**.  
-   During ingestion, **4 additional player metadata attributes** from the player dimension table are joined to the dataset, resulting in **96 total features per player game** in the final feature store.
+4. Feature Assembly
+
+   Endpoint data is merged into a unified player-level feature set containing 92 statistics and contextual metrics collected from multiple NBA Stats API endpoints.
+
+   During ingestion, the dataset is enriched with:
+
+   • 3 player metadata attributes from the player dimension table  
+  (POSITION, HEIGHT, EXP)
+
+   • 3 arena metadata attributes from the team arena dimension table  
+  (ARENA_NAME, ARENA_CITY, ARENA_STATE)
+
+   The pipeline also derives game outcome features including:
+
+• HOME_TEAM_POINTS — total points scored by the home team  
+• AWAY_TEAM_POINTS — total points scored by the away team  
+• POINT_MARGIN — point differential relative to the player's team  
+• GAME_TOTAL_POINTS — combined score of both teams  
+
+• HOME_TEAM_WIN_FLAG — boolean indicator showing whether the home team won the game  
+• PLAYER_TEAM_WIN_FLAG — boolean indicator showing whether the player's team won the game  
+
+   These enrichments produce **105 total player-level features per NBA game** stored in the final BigQuery feature store.
 
 5. Validation Layer  
-Multiple validation checks ensure data integrity before warehouse loading, including required column validation, duplicate row key detection, duplicate column detection, player ID validation, negative minutes checks, empty dataset protection, and a global null-value guard that prevents ingestion if any column contains missing values.
+   Multiple validation checks ensure data integrity before warehouse loading, including required column validation, duplicate row key detection, duplicate column detection, player ID validation, negative minutes checks, empty dataset protection, and a global null-value guard that prevents ingestion if any column contains missing values.
 
 6. Warehouse Load  
    Validated records are written to a partitioned BigQuery feature store table using the game date as the partition key.
@@ -155,7 +184,7 @@ Example pipeline execution:
 
 Example rows stored in the BigQuery feature store.
 
-The table contains **96 player-level features** generated from multiple NBA Stats API endpoints.
+The table contains **105 player-level features** generated from multiple NBA Stats API endpoints.
 
 ![Feature Store Example](docs/feature_store_example_1.png)
 
@@ -175,7 +204,7 @@ single NBA game date.
 
 Each row represents a player's performance in a specific NBA game.
 
-The full production feature store contains **96 player-level features per game**.
+The full production feature store contains **105 player-level features per game**.
 
 ---
 
@@ -319,6 +348,14 @@ Example:
 export GCP_PROJECT_ID="my-gcp-project"
 ```
 
+Inside the pipeline configuration, this value is automatically read using:
+
+```python
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "your-gcp-project-id")
+```
+
+This allows the repository to work for **any user who clones the project** without modifying the source code.
+
 The pipeline will automatically use this value when constructing BigQuery table paths.
 
 For convenience, you may add this variable to your shell profile so it is automatically available in future terminal sessions.
@@ -359,11 +396,46 @@ DATASET_ID = "PR_SEE_NBA_ANALYTICS"
 TABLE_NAME = "pr_see_daily_player_game_log"
 
 PLAYER_DIMENSION_TABLE_NAME = "pr_see_player_dimension"
+
+TEAM_ARENA_DIMENSION_TABLE_NAME = "pr_see_team_arena_dimension"
 ```
 
 These defaults will work for most users.
 
-The pipeline **automatically creates both tables if they do not already exist**.
+The pipeline **automatically creates these tables if they do not already exist**.
+
+---
+
+Additional ingestion behavior can also be configured in `config.py`.
+
+Key configuration options include:
+
+```python
+AUTO_YESTERDAY_MODE = True
+```
+
+When enabled, the pipeline automatically ingests **yesterday's NBA games** each time it runs.
+
+```python
+START_DATE
+END_DATE
+```
+
+These parameters allow users to manually run historical backfills when `AUTO_YESTERDAY_MODE` is disabled.
+
+```python
+MAX_DAYS_PER_RUN
+```
+
+Limits how many days can be ingested in a single execution to prevent excessive NBA API requests.
+
+```python
+EXCLUDE_DATES
+```
+
+Allows specific dates to be skipped during ingestion (for example, the NBA All-Star break).
+
+These configuration controls allow the pipeline to run in **fully automated daily mode** or perform **controlled historical backfills** while protecting the NBA Stats API from excessive load.
 
 ---
 
@@ -373,11 +445,13 @@ The pipeline can send email notifications if ingestion fails.
 
 To enable alerts, set the following environment variables:
 
+```
 export PIPELINE_ALERT_EMAIL="your_email@gmail.com"
 export PIPELINE_ALERT_PASSWORD="your_app_password"
+```
 
-You cannot use your normal Gmail password.
-You must use a Google App Password
+You cannot use your normal Gmail password.  
+You must use a **Google App Password**.
 
 These credentials are used to send failure notifications via Gmail SMTP.
 
@@ -445,7 +519,9 @@ This command executes the ingestion pipeline and then runs all monitoring checks
 
 ---
 
-This project uses a **`src/` package layout**, a common Python packaging pattern that isolates source code from repository root files and improves import reliability. The pipeline is executed as a Python module to mirror production-style package execution.
+This project uses a **`src/` package layout**, a common Python packaging pattern that isolates source code from repository root files and improves import reliability.
+
+The pipeline is executed as a Python module to mirror production-style package execution.
 
 ### Default Behavior (AUTO_YESTERDAY_MODE)
 
@@ -677,6 +753,8 @@ If the dimension table does not exist, it is automatically created and populated
 
 During ingestion the dimension table is loaded and merged with player game logs to enrich each record with player metadata. The pipeline performs a fail-fast validation step to ensure all players in the dataset exist in the dimension table.
 
+If the ingestion pipeline encounters a player that does not exist in the player dimension table, the system automatically retrieves metadata from the NBA Stats API using the commonplayerinfo endpoint, inserts the player into the dimension table, and retries ingestion for that game date. This prevents pipeline failures when new players appear mid-season.
+
 ---
 
 ### Multi-Endpoint Feature Assembly
@@ -684,15 +762,16 @@ During ingestion the dimension table is loaded and merged with player game logs 
 Player game features are constructed by combining data from multiple NBA Stats API endpoints.
 
 For each discovered game the pipeline retrieves:
-
-- traditional box score statistics
-- advanced metrics
-- usage statistics
-- four factor metrics
-- game metadata
-- team context features
+	•	traditional box score statistics
+	•	advanced metrics
+	•	usage statistics
+	•	four factor metrics
+	•	game metadata
+	•	team context features
 
 These datasets are merged into a unified player-level feature set containing 92 statistics and contextual metrics for every player game.
+
+During ingestion, the dataset is enriched with stable player attributes from the player dimension table and arena metadata from the team arena dimension table. Additional derived game context features, including team scores, point margin, total game points, and win/loss indicators, are computed before loading the final dataset into the BigQuery feature store.
 
 ---
 
@@ -701,14 +780,14 @@ These datasets are merged into a unified player-level feature set containing 92 
 The ingestion system includes multiple safeguards to maintain stability when interacting with the NBA Stats API.
 
 These include:
+	•	retry logic with exponential backoff for unstable API requests
+	•	retry protection applied to all endpoints including scoreboardv3 game discovery
+	•	persistent HTTP session pooling to reuse connections and improve request stability
+	•	adaptive request rate governance to prevent API throttling
+	•	automatic cooldown periods between individual games and ingestion days
+	•	session resets between multi-day ingestion batches to maintain API stability
 
-- retry logic with exponential backoff for unstable requests
-- persistent HTTP session configuration
-- adaptive request rate governance
-- automatic cooldowns between games and ingestion days
-- session resets between multi-day ingestion batches
-
-These controls prevent API throttling and improve pipeline reliability during large backfills.
+These controls allow the pipeline to safely perform both daily ingestion and historical backfills while minimizing the risk of API throttling or transient request failures.
 
 ---
 
@@ -806,9 +885,16 @@ The pipeline loads player-level NBA game statistics into a partitioned Google Bi
 
 The warehouse follows a simplified star-schema design that separates **stable player metadata** from **game-level performance features**.
 
-A persistent player dimension table stores attributes such as position, height, and experience. This metadata is retrieved once and joined during ingestion to enrich player game logs before loading them into the feature store. This design reduces redundant API calls and ensures consistent player attributes across all game records.
+Two dimension tables are maintained to store metadata that does not change on a per-game basis:
 
-The primary feature store table contains player-level game statistics generated by merging multiple NBA Stats API endpoints. Each row represents a single player in a single NBA game and includes traditional box score statistics, advanced metrics, usage features, and team context variables.
+• a **player dimension table** containing player attributes  
+• a **team arena dimension table** containing arena metadata
+
+These dimension tables are built and maintained independently of the daily ingestion pipeline and are joined during ingestion to enrich player game records before loading them into the feature store.
+
+This design reduces redundant API calls, improves data consistency, and keeps slowly changing metadata separate from high-volume game statistics.
+
+The primary feature store table contains player-level game statistics generated by merging multiple NBA Stats API endpoints. Each row represents a single player in a single NBA game and includes traditional box score statistics, advanced metrics, usage features, team context variables, and derived game outcome features.
 
 The table is partitioned by `GAME_DATE` to support efficient time-series queries and prevent full-table scans. Clustering by `PLAYER_ID` and `TEAM_ID` improves query performance for common analytical workloads such as player trend analysis, matchup evaluation, and team-level aggregations.
 
@@ -818,7 +904,12 @@ Additional ingestion metadata such as `INGESTED_AT_UTC` and `LOAD_BATCH_ID` are 
 
 Together these design choices create a reliable feature store optimized for downstream analytics, modeling pipelines, and sports analytics research.
 
-The final feature store contains 96 player-level features per game, composed of 92 game statistics collected from NBA Stats API endpoints and 4 stable player attributes joined from the player dimension table.
+The final feature store contains **105 player-level features per game**, composed of:
+
+• **92 game statistics** collected from NBA Stats API endpoints  
+• **3 stable player attributes** joined from the player dimension table  
+• **3 arena metadata attributes** joined from the team arena dimension table  
+• **7 derived game context features** computed during ingestion including team scores, point margin, total game points, and win/loss indicators
 
 ---
 
@@ -846,6 +937,28 @@ During ingestion, the pipeline loads this dimension table and joins it to player
 
 ---
 
+### Team Arena Dimension Table
+
+`pr_see_team_arena_dimension`
+
+The team arena dimension table stores stable arena metadata for each NBA franchise.
+
+Columns:
+
+- TEAM_ID
+- TEAM_TRICODE
+- ARENA_NAME
+- ARENA_CITY
+- ARENA_STATE
+
+This table contains one row per NBA team and provides normalized venue information used to enrich player game records.
+
+The dimension is built automatically by the pipeline if it does not already exist. Arena metadata is derived from team information returned by NBA Stats API endpoints and maintained as a persistent reference table.
+
+During ingestion, the pipeline joins this dimension table using the `HOME_TEAM_ID` field to append arena information to each player game record. This ensures consistent venue metadata across all games without repeatedly retrieving the same information during API calls.
+
+---
+
 ### Player Game Feature Store
 
 `pr_see_daily_player_game_log`
@@ -854,7 +967,7 @@ This table contains player-level game features generated by merging multiple NBA
 
 Each row represents a **single player in a single NBA game**.
 
-The pipeline generates **over 92 player-level features per game** including traditional statistics, advanced metrics, usage statistics, and team context features.
+The pipeline generates **105 player-level features per game** including traditional statistics, advanced metrics, usage statistics, team context features, arena metadata, and derived game outcome variables.
 
 #### Partitioning
 
@@ -943,7 +1056,7 @@ During ingestion, this dimension table is joined to the player game statistics t
 
 ---
 
-By combining data from these endpoints, the pipeline generates a unified dataset containing **96 player-level features per game**, which are validated and stored in the BigQuery feature store for downstream analytics and modeling workflows.
+By combining data from these endpoints, the pipeline generates a unified dataset containing 105 player-level features per game, which are validated and stored in the BigQuery feature store for downstream analytics and modeling workflows.
 
 ---
 
@@ -999,7 +1112,8 @@ nba-feature-store
 │       ├── schema.py
 │       │
 │       ├── dimensions
-│       │   └── build_player_dimension.py
+│       │   ├── build_player_dimension.py
+│       │   └── build_team_arena_dimension.py
 │       │
 │       ├── ingestion
 │       │   ├── ingestion_engine.py
@@ -1036,13 +1150,14 @@ nba-feature-store
 │       └── example_player_game_log.csv
 │
 ├── docs
-│   ├── pipeline_run.png
+│   ├── data_health_audit.png
+│   ├── data_model.md
+│   ├── feature_store_command_center.png
 │   ├── feature_store_example_1.png
 │   ├── feature_store_example_2.png
-│   ├── nba_feature_store_pipeline_architecture.png
-│   ├── data_health_audit.png
 │   ├── game_integrity_audit.png
-│   └── feature_store_command_center.png
+│   ├── nba_feature_store_pipeline_architecture.png
+│   └── pipeline_run.png
 │
 ├── logs
 │
