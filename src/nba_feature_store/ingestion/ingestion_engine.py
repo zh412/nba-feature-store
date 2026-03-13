@@ -263,10 +263,6 @@ def run_pipeline(run_dates):
 
                     player_game_log = pull_full_player_table(game_id)
 
-                    # --------------------------------------------------------
-                    # NORMALIZE TEAM COLUMN NAMES
-                    # --------------------------------------------------------
-
                     player_game_log = player_game_log.rename(
                         columns={
                             "TEAM_ID": "PLAYER_TEAM_ID",
@@ -303,7 +299,8 @@ def run_pipeline(run_dates):
                 log("INFO", "Computing win/loss flags")
 
                 team_points = (
-                    daily_df.groupby(["GAME_ID", "PLAYER_TEAM_ID"])["points"]
+                    daily_df
+                    .groupby(["GAME_ID", "PLAYER_TEAM_ID"])["points"]
                     .sum()
                     .reset_index()
                     .rename(columns={"points": "TEAM_POINTS"})
@@ -316,14 +313,14 @@ def run_pipeline(run_dates):
                 )
 
                 home_scores = (
-                    daily_df[daily_df["HOME_FLAG"] == True]
+                    daily_df[daily_df["HOME_FLAG"]]
                     .groupby("GAME_ID")["TEAM_POINTS"]
                     .first()
                     .rename("HOME_POINTS")
                 )
 
                 away_scores = (
-                    daily_df[daily_df["HOME_FLAG"] == False]
+                    daily_df[~daily_df["HOME_FLAG"]]
                     .groupby("GAME_ID")["TEAM_POINTS"]
                     .first()
                     .rename("AWAY_POINTS")
@@ -341,11 +338,13 @@ def run_pipeline(run_dates):
                 )
 
                 daily_df["HOME_TEAM_WIN_FLAG"] = (
-                    daily_df["HOME_POINTS"] > daily_df["AWAY_POINTS"]
+                    daily_df["HOME_POINTS"]
+                    > daily_df["AWAY_POINTS"]
                 )
 
                 daily_df["PLAYER_TEAM_WIN_FLAG"] = (
-                    (daily_df["HOME_FLAG"] & daily_df["HOME_TEAM_WIN_FLAG"]) |
+                    (daily_df["HOME_FLAG"] & daily_df["HOME_TEAM_WIN_FLAG"])
+                    |
                     (~daily_df["HOME_FLAG"] & ~daily_df["HOME_TEAM_WIN_FLAG"])
                 )
 
@@ -361,7 +360,8 @@ def run_pipeline(run_dates):
                 log("INFO", "Merging player dimension metadata")
 
                 daily_df["PLAYER_ID"] = pd.to_numeric(
-                    daily_df["PLAYER_ID"], errors="coerce"
+                    daily_df["PLAYER_ID"],
+                    errors="coerce"
                 ).astype("Int64")
 
                 daily_df = daily_df.merge(
@@ -378,7 +378,8 @@ def run_pipeline(run_dates):
                 log("INFO", "Merging team arena dimension metadata")
 
                 daily_df["HOME_TEAM_ID"] = pd.to_numeric(
-                    daily_df["HOME_TEAM_ID"], errors="coerce"
+                    daily_df["HOME_TEAM_ID"],
+                    errors="coerce"
                 ).astype("Int64")
 
                 daily_df = daily_df.merge(

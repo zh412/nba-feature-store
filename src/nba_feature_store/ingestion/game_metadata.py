@@ -47,7 +47,6 @@ def enrich_game_metadata(player_game_log, game_id):
     )
 
     summary_dict = summary.get_dict()
-
     summary_data = summary_dict["boxScoreSummary"]
 
     # ------------------------------------------------------------
@@ -97,29 +96,31 @@ def enrich_game_metadata(player_game_log, game_id):
     # METADATA DATAFRAME
     # ------------------------------------------------------------
 
-    meta_df = pd.DataFrame([{
-        "GAME_ID": str(summary_data["gameId"]),
+    meta_df = pd.DataFrame([
+        {
+            "GAME_ID": str(summary_data["gameId"]),
 
-        "GAME_STATUS": summary_data["gameStatusText"],
-        "GAME_TIME_UTC": summary_data["gameTimeUTC"],
+            "GAME_STATUS": summary_data["gameStatusText"],
+            "GAME_TIME_UTC": summary_data["gameTimeUTC"],
 
-        "HOME_TEAM_ID": home_team_id,
-        "HOME_TEAM_TRICODE": home_team_tricode,
+            "HOME_TEAM_ID": home_team_id,
+            "HOME_TEAM_TRICODE": home_team_tricode,
 
-        "AWAY_TEAM_ID": away_team_id,
-        "AWAY_TEAM_TRICODE": away_team_tricode,
+            "AWAY_TEAM_ID": away_team_id,
+            "AWAY_TEAM_TRICODE": away_team_tricode,
 
-        "HOME_TEAM_POINTS": home_team_points,
-        "AWAY_TEAM_POINTS": away_team_points,
+            "HOME_TEAM_POINTS": home_team_points,
+            "AWAY_TEAM_POINTS": away_team_points,
 
-        "REFEREE_1_ID": ref1_id,
-        "REFEREE_2_ID": ref2_id,
-        "REFEREE_3_ID": ref3_id,
+            "REFEREE_1_ID": ref1_id,
+            "REFEREE_2_ID": ref2_id,
+            "REFEREE_3_ID": ref3_id,
 
-        "REFEREE_1_NAME": ref1_name,
-        "REFEREE_2_NAME": ref2_name,
-        "REFEREE_3_NAME": ref3_name
-    }])
+            "REFEREE_1_NAME": ref1_name,
+            "REFEREE_2_NAME": ref2_name,
+            "REFEREE_3_NAME": ref3_name,
+        }
+    ])
 
     # ------------------------------------------------------------
     # MERGE WITH PLAYER DATA
@@ -131,7 +132,7 @@ def enrich_game_metadata(player_game_log, game_id):
         meta_df,
         on="GAME_ID",
         how="left",
-        validate="m:1"
+        validate="m:1",
     )
 
     # ------------------------------------------------------------
@@ -139,8 +140,8 @@ def enrich_game_metadata(player_game_log, game_id):
     # ------------------------------------------------------------
 
     player_game_log["HOME_FLAG"] = (
-        player_game_log["PLAYER_TEAM_ID"] ==
-        player_game_log["HOME_TEAM_ID"]
+        player_game_log["PLAYER_TEAM_ID"]
+        == player_game_log["HOME_TEAM_ID"]
     )
 
     # ------------------------------------------------------------
@@ -153,11 +154,11 @@ def enrich_game_metadata(player_game_log, game_id):
     )
 
     player_game_log.loc[
-        player_game_log["HOME_FLAG"] == False,
-        "POINT_MARGIN"
+        ~player_game_log["HOME_FLAG"],
+        "POINT_MARGIN",
     ] = -player_game_log.loc[
-        player_game_log["HOME_FLAG"] == False,
-        "POINT_MARGIN"
+        ~player_game_log["HOME_FLAG"],
+        "POINT_MARGIN",
     ]
 
     player_game_log["GAME_TOTAL_POINTS"] = (
