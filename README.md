@@ -72,32 +72,34 @@ flowchart TD
 A[NBA Stats API]
 
 %% =========================================================
+%% INGESTION ORCHESTRATION LAYER
+%% Governs ALL NBA API calls made by the pipeline
+%% =========================================================
+
+C1[Batch Engine<br>Multi-Day Processing]
+C2[API Session Manager<br>Persistent HTTP Session]
+C3[Retry Layer<br>Exponential Backoff]
+C4[Rate Governor<br>Adaptive API Throttling]
+
+C1 --> C2
+C2 --> C3
+C3 --> C4
+
+%% =========================================================
 %% GAME DISCOVERY
 %% =========================================================
 
-A --> B1[scoreboardv3<br>Game Discovery]
-
-%% =========================================================
-%% INGESTION ORCHESTRATION
-%% =========================================================
-
-B1 --> C1[Batch Engine<br>Multi-Day Processing]
-C1 --> C2[API Session Manager<br>Persistent HTTP Session]
-C2 --> C3[Retry Layer<br>Exponential Backoff]
-C3 --> C4[Rate Governor<br>Adaptive API Throttling]
+C4 --> B1[scoreboardv3<br>Game Discovery]
 
 %% =========================================================
 %% GAME DATA COLLECTION
 %% =========================================================
 
-C4 --> D1[Game Data Collector]
+B1 --> D1[Game Data Collector]
 
-A --> B2[Box Score Endpoints<br>boxscoretraditionalv3<br>boxscoreadvancedv3<br>boxscoreusagev3<br>boxscorefourfactorsv3]
+D1 --> B2[Box Score Endpoints<br>boxscoretraditionalv3<br>boxscoreadvancedv3<br>boxscoreusagev3<br>boxscorefourfactorsv3]
 
-A --> B3[boxscoresummaryv3<br>Game Metadata<br>Raw JSON Extraction]
-
-B2 --> D1
-B3 --> D1
+D1 --> B3[boxscoresummaryv3<br>Game Metadata<br>Raw JSON Extraction]
 
 %% =========================================================
 %% DIMENSION PIPELINES
@@ -121,8 +123,8 @@ G2 --> H2[(Team Arena Dimension Table<br>pr_see_team_arena_dimension)]
 %% FEATURE ASSEMBLY
 %% =========================================================
 
-D1 --> D2[Feature Assembly<br>Merge Player Statistics<br>+ Game Metadata]
-
+B2 --> D2[Feature Assembly<br>Merge Player Statistics<br>+ Game Metadata]
+B3 --> D2
 H1 --> D2
 H2 --> D2
 
