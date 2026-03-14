@@ -2,83 +2,68 @@
 # GAME METADATA ENRICHMENT
 # ============================================================
 
+import requests
 import pandas as pd
-from nba_api.stats.endpoints import boxscoresummaryv3
 
 from nba_feature_store.utils.rate_governor import RateGovernor
 
-# Shared governor instance for this module
 _governor = RateGovernor()
 
 
 def enrich_game_metadata(player_game_log, game_id):
+
     """
     Pull game-level metadata and merge it into the player dataframe.
-
-    Adds the following columns:
-
-    GAME_STATUS
-    GAME_TIME_UTC
-
-    HOME_TEAM_ID
-    HOME_TEAM_TRICODE
-    AWAY_TEAM_ID
-    AWAY_TEAM_TRICODE
-    HOME_FLAG
-
-    HOME_TEAM_POINTS
-    AWAY_TEAM_POINTS
-    POINT_MARGIN
-    GAME_TOTAL_POINTS
-
-    REFEREE_1_ID
-    REFEREE_2_ID
-    REFEREE_3_ID
-    REFEREE_1_NAME
-    REFEREE_2_NAME
-    REFEREE_3_NAME
     """
 
     _governor.register_request()
 
-    summary = boxscoresummaryv3.BoxScoreSummaryV3(
-        game_id=game_id,
-        timeout=45
-    )
+    # ------------------------------------------------------------
+    # DIRECT NBA API REQUEST (BYPASS nba_api PARSER)
+    # ------------------------------------------------------------
 
-    summary_dict = summary.get_dict()
-    summary_data = summary_dict["boxScoreSummary"]
+    url = f"https://cdn.nba.com/static/json/liveData/boxscore/boxscore_{game_id}.json"
+
+    response = requests.get(url, timeout=30)
+    data = response.json()
+
+    game = data.get("game", {})
+
+    home_team = game.get("homeTeam", {})
+    away_team = game.get("awayTeam", {})
 
     # ------------------------------------------------------------
     # TEAM INFORMATION
     # ------------------------------------------------------------
 
-    home_team_id = summary_data["homeTeam"]["teamId"]
-    home_team_tricode = summary_data["homeTeam"]["teamTricode"]
+    home_team_id = home_team.get("teamId")
+    home_team_tricode = home_team.get("teamTricode")
 
-    away_team_id = summary_data["awayTeam"]["teamId"]
-    away_team_tricode = summary_data["awayTeam"]["teamTricode"]
+    away_team_id = away_team.get("teamId")
+    away_team_tricode = away_team.get("teamTricode")
 
     # ------------------------------------------------------------
     # SCORE INFORMATION
     # ------------------------------------------------------------
 
-    home_team_points = summary_data["homeTeam"]["score"]
-    away_team_points = summary_data["awayTeam"]["score"]
+    home_team_points = home_team.get("score")
+    away_team_points = away_team.get("score")
+
+    # ------------------------------------------------------------
+    # GAME STATUS
+    # ------------------------------------------------------------
+
+    game_status = game.get("gameStatusText")
+    game_time_utc = game.get("gameTimeUTC")
 
     # ------------------------------------------------------------
     # REFEREE EXTRACTION
     # ------------------------------------------------------------
 
-    officials = summary_data.get("officials", [])
+    officials = game.get("officials", [])
 
-    ref1_id = None
-    ref2_id = None
-    ref3_id = None
-
-    ref1_name = None
-    ref2_name = None
-    ref3_name = None
+    ref1_id = ref2_id = ref3_id = None
+    ref1_name = ref2_name = ref3_name = None
 
     if len(officials) > 0:
         ref1_id = officials[0].get("personId")
@@ -98,10 +83,10 @@ def enrich_game_metadata(player_game_log, game_id):
 
     meta_df = pd.DataFrame([
         {
-            "GAME_ID": str(summary_data["gameId"]),
+            "GAME_ID": str(game_id),
 
-            "GAME_STATUS": summary_data["gameStatusText"],
-            "GAME_TIME_UTC": summary_data["gameTimeUTC"],
+            "GAME_STATUS": game_status,
+            "GAME_TIME_UTC": game_time_utc,
 
             "HOME_TEAM_ID": home_team_id,
             "HOME_TEAM_TRICODE": home_team_tricode,
