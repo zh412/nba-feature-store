@@ -72,85 +72,121 @@ flowchart TD
 A[NBA Stats API]
 
 %% =========================================================
-%% INGESTION ORCHESTRATION
+%% BATCH ORCHESTRATION
 %% =========================================================
 
 B[Batch Engine<br>Multi-Day Processing]
 
-C[Ingestion Engine]
+B --> C[Reset NBA API Session]
 
-B --> C
+C --> D[Ingestion Engine<br>run_pipeline]
+
+%% =========================================================
+%% DIMENSION INITIALIZATION
+%% =========================================================
+
+D --> E[Load Player Dimension<br>pr_see_player_dimension]
+
+D --> F[Load Team Arena Dimension<br>pr_see_team_arena_dimension]
 
 %% =========================================================
 %% GAME DISCOVERY
 %% =========================================================
 
-C --> D[scoreboardv3<br>Game Discovery]
+D --> G[scoreboardv3<br>Game Discovery]
+
+A --> G
+
+G --> H[Game Loop<br>Process Each GAME_ID]
 
 %% =========================================================
-%% PER-GAME DATA COLLECTION
+%% PLAYER STATISTICS COLLECTION
 %% =========================================================
 
-D --> E[Game Loop<br>Process Each GAME_ID]
+H --> I[Pull Player Statistics]
 
-E --> F[boxscoresummaryv3<br>Game Metadata<br>Raw JSON Extraction]
+I --> J[boxscoretraditionalv3]
 
-E --> G[Box Score Endpoints<br>boxscoretraditionalv3<br>boxscoreadvancedv3<br>boxscoreusagev3<br>boxscorefourfactorsv3]
+I --> K[boxscoreadvancedv3]
 
-%% =========================================================
-%% API RELIABILITY LAYER
-%% =========================================================
+I --> L[boxscoreusagev3]
 
-H[API Session Manager<br>Persistent HTTP Session]
-
-I[Retry Layer<br>Exponential Backoff]
-
-J[Rate Governor<br>Adaptive API Throttling]
-
-F --> H
-G --> H
-
-H --> I
-I --> J
+A --> J
+A --> K
+A --> L
 
 %% =========================================================
-%% DIMENSION PIPELINES
+%% TEAM CONTEXT
 %% =========================================================
 
-A --> K[commonallplayers]
-A --> L[commonplayerinfo]
+H --> M[boxscorefourfactorsv3<br>Team Context]
 
-K --> M[Player Dimension Builder]
-L --> M
+A --> M
 
-M --> N[(Player Dimension Table<br>pr_see_player_dimension)]
+%% =========================================================
+%% GAME METADATA
+%% =========================================================
 
-A --> O[Static Team Metadata]
+H --> N[boxscoresummaryv3<br>Raw JSON Metadata Extraction]
 
-O --> P[Team Arena Dimension Builder]
-
-P --> Q[(Team Arena Dimension Table<br>pr_see_team_arena_dimension)]
+A --> N
 
 %% =========================================================
 %% FEATURE ASSEMBLY
 %% =========================================================
 
-J --> R[Feature Assembly<br>Merge Player Statistics<br>+ Game Metadata]
+J --> O[Feature Assembly]
 
-N --> R
-Q --> R
+K --> O
+L --> O
+M --> O
+N --> O
+
+E --> O
+F --> O
 
 %% =========================================================
-%% DATA QUALITY LAYER
+%% DERIVED FEATURES
 %% =========================================================
 
-R --> S[Validation Layer<br>Schema Enforcement<br>Integrity Checks]
+O --> P[Derived Game Context Features<br>Scores / Margin / Win Flags]
 
 %% =========================================================
-%% DATA WAREHOUSE
+%% DATA QUALITY
 %% =========================================================
 
-S --> T[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
+P --> Q[Validation Layer]
+
+Q --> R[Schema Enforcement]
+
+%% =========================================================
+%% WAREHOUSE LOAD
+%% =========================================================
+
+R --> S[Delete Existing Partition<br>GAME_DATE]
+
+S --> T[Load Data]
+
+T --> U[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
+
+%% =========================================================
+%% API RELIABILITY LAYER
+%% =========================================================
+
+V[API Session Manager<br>Persistent HTTP Session]
+
+W[Retry Layer<br>Exponential Backoff]
+
+X[Rate Governor<br>Adaptive API Throttling]
+
+J --> V
+K --> V
+L --> V
+M --> V
+N --> V
+
+V --> W
+W --> X
 ```
 
 The pipeline follows a modular data engineering architecture. NBA game data is collected from multiple NBA Stats API endpoints and merged into player-level feature sets. A dedicated dimension builder maintains a centralized player metadata table, which is joined during ingestion to enrich game-level statistics. The ingestion engine performs validation checks before loading the final dataset into a partitioned BigQuery feature store designed for analytical workloads and modeling pipelines.
