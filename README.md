@@ -66,7 +66,7 @@ The pipeline was initially prototyped in a notebook environment and later refact
 flowchart TD
 
 %% =========================================================
-%% PIPELINE ORCHESTRATION
+%% ORCHESTRATION LAYER
 %% =========================================================
 
 A[Batch Engine<br>run_batches]
@@ -74,7 +74,7 @@ A --> B[Reset NBA API Session]
 B --> C[Ingestion Engine<br>run_pipeline]
 
 %% =========================================================
-%% DIMENSION LOADING
+%% DIMENSION TABLES
 %% =========================================================
 
 C --> D[Load Player Dimension<br>pr_see_player_dimension]
@@ -86,7 +86,7 @@ C --> E[Load Team Arena Dimension<br>pr_see_team_arena_dimension]
 
 C --> F[Discover Games<br>scoreboardv3]
 
-API[NBA Stats API] --> F
+NBA[NBA Stats API] --> F
 
 F --> G[Game Loop<br>Process Each GAME_ID]
 
@@ -94,75 +94,77 @@ F --> G[Game Loop<br>Process Each GAME_ID]
 %% GAME DATA COLLECTION
 %% =========================================================
 
-G --> H[Pull Full Player Game Data]
+subgraph GAME_DATA_ENDPOINTS [NBA Game Data Endpoints]
 
-H --> I[Traditional Stats<br>boxscoretraditionalv3]
-H --> J[Advanced Metrics<br>boxscoreadvancedv3]
-H --> K[Usage Metrics<br>boxscoreusagev3]
-H --> L[Team Context<br>boxscorefourfactorsv3]
-H --> M[Game Metadata<br>boxscoresummaryv3 Raw JSON]
+T1[Traditional Box Score<br>boxscoretraditionalv3]
+T2[Advanced Metrics<br>boxscoreadvancedv3]
+T3[Usage Metrics<br>boxscoreusagev3]
+T4[Team Context<br>boxscorefourfactorsv3]
+T5[Game Metadata<br>boxscoresummaryv3]
 
-API --> I
-API --> J
-API --> K
-API --> L
-API --> M
+end
+
+G --> T1
+G --> T2
+G --> T3
+G --> T4
+G --> T5
+
+NBA --> T1
+NBA --> T2
+NBA --> T3
+NBA --> T4
+NBA --> T5
 
 %% =========================================================
 %% FEATURE ASSEMBLY
 %% =========================================================
 
-I --> N[Feature Assembly]
-J --> N
-K --> N
-L --> N
-M --> N
+T1 --> H[Feature Assembly]
+T2 --> H
+T3 --> H
+T4 --> H
+T5 --> H
 
-D --> N
-E --> N
+D --> H
+E --> H
 
 %% =========================================================
 %% DERIVED FEATURES
 %% =========================================================
 
-N --> O[Compute Game Context Features<br>Team Scores / Margin / Win Flags]
+H --> I[Compute Game Context Features<br>Scores • Margin • Win Flags]
 
 %% =========================================================
-%% DATA QUALITY LAYER
+%% DATA VALIDATION
 %% =========================================================
 
-O --> P[Validation Layer]
-P --> Q[Schema Enforcement]
+I --> J[Validation Layer]
+J --> K[Schema Enforcement]
 
 %% =========================================================
 %% WAREHOUSE LOAD
 %% =========================================================
 
-Q --> R[Delete Existing Partition<br>GAME_DATE]
-R --> S[Load Data to BigQuery]
+K --> L[Delete Existing Partition<br>GAME_DATE]
+L --> M[Load to BigQuery]
 
-S --> T[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
+M --> N[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
 
 %% =========================================================
-%% API RELIABILITY SAFEGUARDS
+%% API RELIABILITY CONTROLS
 %% =========================================================
 
-subgraph API_RELIABILITY[API Reliability Controls]
+subgraph API_RELIABILITY [API Reliability Controls]
 
-U[Persistent HTTP Session]
-V[Retry Logic<br>Exponential Backoff]
-W[Rate Governor<br>Adaptive Throttling]
+R1[Persistent HTTP Session]
+R2[Retry Logic<br>Exponential Backoff]
+R3[Rate Governor<br>Adaptive Throttling]
 
-U --> V
-V --> W
+R1 --> R2
+R2 --> R3
 
 end
-
-I --> U
-J --> U
-K --> U
-L --> U
-M --> U
 ```
 
 The pipeline follows a modular data engineering architecture. NBA game data is collected from multiple NBA Stats API endpoints and merged into player-level feature sets. A dedicated dimension builder maintains a centralized player metadata table, which is joined during ingestion to enrich game-level statistics. The ingestion engine performs validation checks before loading the final dataset into a partitioned BigQuery feature store designed for analytical workloads and modeling pipelines.
