@@ -27,19 +27,26 @@ Production-style NBA data pipeline that ingests player-level game statistics fro
 
 Current capabilities:
 
-• Automated daily ingestion using AUTO_YESTERDAY_MODE  
+• Automated daily ingestion using `AUTO_YESTERDAY_MODE`  
 • Partitioned BigQuery feature store optimized for analytical workloads  
-• Player dimension table for centralized metadata management  
-• Multi-endpoint NBA API ingestion and feature merging  
-• Schema enforcement to guarantee consistent warehouse structure  
+• Player dimension table for centralized player metadata management  
+• Team arena dimension table for normalized venue metadata  
+• Multi-endpoint NBA API ingestion and feature assembly  
+• Raw JSON ingestion fallback for `BoxScoreSummaryV3` to bypass known nba_api parser issues  
+• Schema enforcement guaranteeing a consistent warehouse structure  
 • Data validation safeguards preventing corrupted records from entering the warehouse  
-• Idempotent ingestion allowing safe reruns and recovery from failures  
+• Idempotent ingestion enabling safe reruns and historical reprocessing  
 • Retry logic with exponential backoff for unstable API calls  
-• Adaptive rate limiting to prevent NBA Stats API throttling  
-• Monitoring dashboards and integrity audits for warehouse health  
-• Historical backfill engine with batch safety limits
+• Adaptive rate governance to prevent NBA Stats API throttling  
+• Automated player dimension backfill for newly discovered players during ingestion  
+• Monitoring dashboards and warehouse integrity audits  
+• Historical backfill engine with batch safety guardrails
+
+The pipeline currently generates **105 player-level features per NBA game**, combining statistics from multiple NBA Stats API endpoints with metadata from dimension tables and derived game context features.
 
 This repository represents **Phase 1: Data Infrastructure** for a larger sports analytics platform.
+
+---
 
 ## Overview
 
@@ -58,27 +65,39 @@ The pipeline was initially prototyped in a notebook environment and later refact
 ```mermaid
 flowchart TD
 
+%% =========================================================
+%% EXTERNAL DATA SOURCE
+%% =========================================================
+
 A[NBA Stats API]
 
 %% =========================================================
-%% GAME INGESTION PIPELINE
+%% GAME DISCOVERY
 %% =========================================================
 
 A --> B1[scoreboardv3<br>Game Discovery]
-A --> B2[Box Score Endpoints<br>traditional / advanced / usage / fourfactors]
-A --> B3[boxscoresummaryv3<br>Game Metadata]
 
-B1 --> C1[Batch Engine]
-C1 --> C2[API Session Manager]
+%% =========================================================
+%% INGESTION ORCHESTRATION
+%% =========================================================
 
-C2 --> C3[Retry Layer]
-C3 --> C4[Rate Governor]
+B1 --> C1[Batch Engine<br>Multi-Day Processing]
+C1 --> C2[API Session Manager<br>Persistent HTTP Session]
+C2 --> C3[Retry Layer<br>Exponential Backoff]
+C3 --> C4[Rate Governor<br>Adaptive API Throttling]
 
-C4 --> D1[Pull Game Data]
+%% =========================================================
+%% GAME DATA COLLECTION
+%% =========================================================
+
+C4 --> D1[Game Data Collector]
+
+A --> B2[Box Score Endpoints<br>boxscoretraditionalv3<br>boxscoreadvancedv3<br>boxscoreusagev3<br>boxscorefourfactorsv3]
+
+A --> B3[boxscoresummaryv3<br>Game Metadata<br>Raw JSON Extraction]
+
 B2 --> D1
 B3 --> D1
-
-D1 --> D2[Feature Assembly<br>Merge Player Statistics + Game Context]
 
 %% =========================================================
 %% DIMENSION PIPELINES
@@ -99,13 +118,23 @@ F3 --> G2[Team Arena Dimension Builder]
 G2 --> H2[(Team Arena Dimension Table<br>pr_see_team_arena_dimension)]
 
 %% =========================================================
-%% FEATURE STORE
+%% FEATURE ASSEMBLY
 %% =========================================================
+
+D1 --> D2[Feature Assembly<br>Merge Player Statistics<br>+ Game Metadata]
 
 H1 --> D2
 H2 --> D2
 
-D2 --> E[Validation Layer]
+%% =========================================================
+%% DATA QUALITY LAYER
+%% =========================================================
+
+D2 --> E[Validation Layer<br>Schema Enforcement<br>Integrity Checks]
+
+%% =========================================================
+%% DATA WAREHOUSE
+%% =========================================================
 
 E --> I[(BigQuery Feature Store<br>pr_see_daily_player_game_log)]
 ```
@@ -1016,13 +1045,21 @@ The pipeline collects data from multiple NBA Stats API endpoints to construct a 
 
 Each pipeline run begins by discovering games for a specific date, then retrieving player statistics, team context data, and metadata from several endpoints. These datasets are merged into a unified player-level feature table before being validated and loaded into the BigQuery feature store.
 
+The ingestion process combines **player statistics, game metadata, team context metrics, and stable player attributes** into a single analytics dataset designed for downstream modeling and sports analytics workflows.
+
+---
+
 ### Game Discovery
 
-The pipeline first identifies all games played on the ingestion date.
+The pipeline first identifies all games played on the ingestion date using:
 
 - `scoreboardv3`
 
-This endpoint provides the list of games for a given date and acts as the entry point for the ingestion process. Each discovered `GAME_ID` is then processed individually to retrieve detailed statistics.
+This endpoint provides the schedule of games for a specific date and acts as the entry point for the ingestion process.
+
+Each discovered `GAME_ID` is processed individually by the ingestion engine. The pipeline retrieves all player statistics and contextual data associated with that game before merging the results into a unified player-level feature set.
+
+---
 
 ### Player Box Score Statistics
 
@@ -1033,15 +1070,90 @@ For every game, multiple box score endpoints are queried to collect player-level
 - `boxscoreusagev3`
 - `boxscorefourfactorsv3`
 
-These endpoints provide traditional statistics, advanced efficiency metrics, usage statistics, and four-factor analytics. The results are merged to construct a comprehensive feature set describing each player's performance within the game.
+These endpoints provide different categories of basketball analytics data.
+
+**Traditional box score statistics**
+
+Examples include:
+
+- points  
+- rebounds  
+- assists  
+- steals  
+- blocks  
+- field goals made and attempted  
+- plus/minus  
+
+These metrics describe the raw performance of a player within a specific game.
+
+**Advanced efficiency metrics**
+
+Examples include:
+
+- offensive rating  
+- defensive rating  
+- net rating  
+- true shooting percentage  
+- effective field goal percentage  
+
+These metrics provide efficiency-based evaluations of player performance.
+
+**Usage statistics**
+
+Usage metrics describe how heavily a player was involved in offensive possessions.
+
+Examples include:
+
+- usage percentage  
+- percentage of team field goals  
+- percentage of team assists  
+- percentage of team points  
+
+**Four-factor metrics**
+
+Four-factor statistics provide team-level context describing overall team performance in the game.
+
+Examples include:
+
+- effective field goal percentage  
+- turnover percentage  
+- offensive rebound percentage  
+- free throw rate  
+
+The pipeline merges these datasets to construct a comprehensive feature set describing each player's performance within a specific NBA game.
+
+---
 
 ### Game Metadata
 
-Additional contextual information about each game is retrieved using:
+Additional contextual information about each NBA game is retrieved using the NBA Stats API endpoint:
 
 - `boxscoresummaryv3`
 
-This endpoint provides game-level metadata such as team information, matchup context, and other attributes used to enrich the final dataset.
+This endpoint provides game-level metadata used to enrich the player-level dataset.
+
+Examples of metadata extracted include:
+
+- team identifiers  
+- team abbreviations  
+- final team scores  
+- game status  
+- scheduled game start time  
+- referee assignments  
+
+During development it was discovered that the official `nba_api` parser for `BoxScoreSummaryV3` occasionally fails when the NBA Stats API returns incomplete structures for certain games. In some cases the API response contains missing arena information or incomplete team period data, which causes the parser to attempt to access attributes on `None` objects and raise errors such as:
+
+```
+AttributeError: 'NoneType' object has no attribute 'get'
+```
+
+Because these failures occur intermittently depending on the structure of the NBA Stats API response, relying on the built-in parser can cause ingestion failures for otherwise valid games.
+
+To ensure pipeline reliability, the ingestion system bypasses the `nba_api` parser for this endpoint and instead reads the **raw JSON response** returned by the NBA Stats API. The required metadata fields are then extracted manually within the ingestion layer.
+
+This approach prevents ingestion failures caused by parser assumptions while preserving the full set of metadata required by the feature store. The extracted metadata is merged with player-level statistics during feature assembly before the dataset passes through the validation layer and is written to the BigQuery feature store.
+
+---
 
 ### Player Metadata
 
@@ -1050,13 +1162,50 @@ Stable player attributes are retrieved using:
 - `commonallplayers`
 - `commonplayerinfo`
 
-These endpoints provide metadata such as player identifiers, positions, height, and years of experience. The pipeline builds and maintains a persistent **player dimension table** using this information.
+These endpoints provide metadata including:
 
-During ingestion, this dimension table is joined to the player game statistics to enrich each record with player attributes while avoiding repeated API calls.
+- player identifiers  
+- player positions  
+- height  
+- years of NBA experience  
+
+The pipeline builds and maintains a persistent **player dimension table** using this information.
+
+During ingestion, the dimension table is joined to player game statistics to enrich each record with player attributes while avoiding repeated API calls.
+
+If the ingestion pipeline encounters a player that does not yet exist in the dimension table (for example a newly signed player), the system automatically retrieves metadata for that player, inserts the record into the dimension table, and retries ingestion for the affected game date.
 
 ---
 
-By combining data from these endpoints, the pipeline generates a unified dataset containing 105 player-level features per game, which are validated and stored in the BigQuery feature store for downstream analytics and modeling workflows.
+### Arena Metadata
+
+Arena metadata is maintained in a dedicated dimension table built by the pipeline.
+
+The **team arena dimension table** contains venue information for each NBA franchise including:
+
+- arena name  
+- arena city  
+- arena state  
+
+This metadata is joined to the dataset during ingestion using the `HOME_TEAM_ID` field.
+
+Maintaining arena metadata in a dimension table avoids repeated API calls and ensures consistent venue information across all games.
+
+---
+
+By combining data from these endpoints and dimension tables, the pipeline generates a unified dataset containing **105 player-level features per NBA game**.
+
+These features include:
+
+- traditional box score statistics  
+- advanced efficiency metrics  
+- usage statistics  
+- team context variables  
+- player metadata  
+- arena metadata  
+- derived game outcome features  
+
+The final dataset is validated by the pipeline's data integrity layer and loaded into the partitioned BigQuery feature store for downstream analytics and modeling workflows.
 
 ---
 

@@ -57,7 +57,7 @@ def check_team_counts():
     query = f"""
     SELECT
         GAME_ID,
-        COUNT(DISTINCT TEAM_ID) AS team_count
+        COUNT(DISTINCT PLAYER_TEAM_ID) AS team_count
     FROM `{TABLE_ID}`
     WHERE GAME_DATE = DATE('{audit_date}')
     GROUP BY GAME_ID
@@ -89,11 +89,11 @@ def check_player_counts():
     query = f"""
     SELECT
         GAME_ID,
-        TEAM_ID,
+        PLAYER_TEAM_ID,
         COUNT(DISTINCT PLAYER_ID) AS player_count
     FROM `{TABLE_ID}`
     WHERE GAME_DATE = DATE('{audit_date}')
-    GROUP BY GAME_ID, TEAM_ID
+    GROUP BY GAME_ID, PLAYER_TEAM_ID
     HAVING player_count < 5
     """
 
@@ -157,7 +157,7 @@ def check_corrupted_rows():
     WHERE GAME_DATE = DATE('{audit_date}')
     AND (
         PLAYER_ID IS NULL
-        OR TEAM_ID IS NULL
+        OR PLAYER_TEAM_ID IS NULL
         OR GAME_ID IS NULL
     )
     LIMIT 20
