@@ -66,7 +66,7 @@ TEAM_ARENA_DIMENSION_TABLE = (
 # True  -> Automatically ingest yesterday's NBA games
 # False -> Use manual START_DATE / END_DATE
 
-AUTO_YESTERDAY_MODE = False
+AUTO_YESTERDAY_MODE = True
 
 
 # ------------------------------------------------------------
@@ -75,8 +75,8 @@ AUTO_YESTERDAY_MODE = False
 # ONLY USED IF AUTO_YESTERDAY_MODE = False
 # USE A MAXIMUM OF 7 DAYS HERE
 
-START_DATE = "03/12/2026"
-END_DATE = "03/12/2026"
+START_DATE = "11/16/2025"
+END_DATE = "11/17/2025"
 
 
 # ------------------------------------------------------------
