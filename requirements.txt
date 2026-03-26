@@ -31,7 +31,7 @@ pycparser==3.0
 pydata-google-auth==1.9.1
 python-dateutil==2.9.0.post0
 pytz==2026.1.post1
-requests==2.32.5
+requests==2.33.0
 requests-oauthlib==2.0.0
 rsa==4.9.1
 six==1.17.0
